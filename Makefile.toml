@@ -22,54 +22,118 @@ script = '''
 docker-compose down
 '''
 
-[tasks.delete-volumes]
+[tasks.remove-volumes]
 script_runner = "@shell"
 script = '''
 docker volume prune --filter all=1
 '''
 
+# Caddy reverse proxy
+
+[tasks.compose-proxy]
+script_runner = "@shell"
+script = '''
+docker compose down proxy-srv
+docker compose up -d --no-deps --force-recreate --build proxy-srv
+'''
+
+# Grafana
+
+[tasks.compose-grafana]
+script_runner = "@shell"
+script = '''
+docker compose down grafana
+docker compose up -d --no-deps --force-recreate --build grafana
+'''
+
+# Prometheus
+
+[tasks.compose-prometheus]
+script_runner = "@shell"
+script = '''
+docker compose down prometheus
+docker compose up -d --no-deps --force-recreate --build prometheus
+'''
+
+# Prometheus
+
+[tasks.compose-rabbitmq]
+script_runner = "@shell"
+script = '''
+docker compose down rabbitmq
+docker compose up -d --no-deps --force-recreate --build rabbitmq
+'''
+
 # Access server
 
-[tasks.access-build]
+[tasks.build-access]
 script_runner = "@shell"
 script = '''
 cross build --release --package access --target x86_64-unknown-linux-musl
+rm -f ./bin/access
+cp ./target/x86_64-unknown-linux-musl/release/access ./bin/access
 '''
 
-[tasks.access-docker]
+[tasks.compose-access]
 script_runner = "@shell"
 script = '''
-docker compose down -rmi access-srv
-docker compose up -d --no-deps --force-recreate --build access-srv
+docker compose down access-svc
+docker compose up -d --no-deps --force-recreate --build access-svc
 '''
 
 [tasks.access]
-dependencies = ["access-build"]
-script_runner = "@shell"
-script = '''
-docker compose down -rmi access-srv
-docker compose up -d --no-deps --force-recreate --build access-srv
-'''
+dependencies = ["build-access", "compose-access"]
 
 # Authorization service
 
-[tasks.auth-build]
+[tasks.build-auth]
 script_runner = "@shell"
 script = '''
 cross build --release --package auth --target x86_64-unknown-linux-musl
+rm -f ./bin/auth-svc
+cp ./target/x86_64-unknown-linux-musl/release/auth ./bin/auth
 '''
 
-[tasks.auth-docker]
+[tasks.compose-auth]
 script_runner = "@shell"
 script = '''
-docker compose down -rmi auth-svc
+docker compose down auth-svc
 docker compose up -d --no-deps --force-recreate --build auth-svc
 '''
 
 [tasks.auth]
-dependencies = ["auth-build"]
+dependencies = ["build-auth", "compose-auth"]
+
+# Logger service
+
+[tasks.build-logger]
 script_runner = "@shell"
 script = '''
-docker compose down -rmi auth-svc
-docker compose up -d --no-deps --force-recreate --build auth-svc
+cross build --release --package logger --target x86_64-unknown-linux-musl
+rm -f ./bin/logger
+cp ./target/x86_64-unknown-linux-musl/release/logger ./bin/logger
 '''
+
+[tasks.compose-logger]
+script_runner = "@shell"
+script = '''
+docker compose down logger-svc
+docker compose up -d --no-deps --force-recreate --build logger-svc
+'''
+
+[tasks.logger]
+dependencies = ["build-logger", "compose-logger"]
+
+# Batch tasks
+
+[tasks.build-api]
+dependencies = ["build-logger", "build-access", "build-auth"]
+
+[tasks.compose-api]
+dependencies = ["compose-logger", "compose-auth", "compose-access"]
+
+[tasks.install-dioxus]
+install_crate = "dioxus-cli"
+
+[tasks.install-cross]
+install_crate = "cross"

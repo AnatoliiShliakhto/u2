@@ -1,39 +1,89 @@
-mod router;
-mod state;
+mod pool;
 
-use crate::state::AppState;
+use crate::pool::Pool;
 use ::api_util::{
     amqp::*,
-    logger::{self, info},
-    server,
+    env,
+    logger::{self, error, info},
 };
-use ::std::sync::Arc;
+use ::std::sync::LazyLock;
 
-pub async fn ampq_callback(delivery: DeliveryResult) {
+const AMQP_TX_QUEUES: [&str; 2] = ["broadcast", "logger"];
+const AMQP_RX_QUEUES: [&str; 2] = ["broadcast", "logger"];
+
+static POOL: LazyLock<Pool> =
+    LazyLock::new(|| Pool::new(env::get_var_or_default("LOG_DIR", "/logs")));
+
+pub async fn amqp_consumer(delivery: DeliveryResult) {
     let Ok(Some(delivery)) = delivery else { return };
 
-    let data = String::from_utf8_lossy(&delivery.data);
-    let app_id = delivery.properties.app_id().clone().unwrap_or_default();
-    let message_id = delivery.properties.message_id().clone().unwrap_or_default();
-    info!("app: {app_id} message_id: {message_id} data: {data}");
-    
+    let app_id = delivery
+        .properties
+        .app_id()
+        .clone()
+        .unwrap_or_default()
+        .to_string();
+    let message_id = delivery
+        .properties
+        .message_id()
+        .clone()
+        .unwrap_or_default()
+        .to_string();
+
+    match message_id.as_str() {
+        "log" => {
+            POOL.write(&app_id, &delivery.data).await.ok();
+        }
+        "shutdown" => (),
+        _ => (),
+    };
+
     if let Err(err) = delivery.ack(BasicAckOptions::default()).await {
-        dbg!("Delivery ack error: {}", err);
+        error!("Delivery ack error: {}", err);
     }
 }
 
 #[tokio::main]
 async fn main() {
-    logger::stdout_logger();
+    println!(include_str!("../../../res/logo/banner.txt"));
+    env::init();
+    
+    let _logger_guard = logger::file_logger(
+        &env::get_var_or_default("LOG_DIR", "/logs"),
+        env!("CARGO_PKG_NAME"),
+    );
 
-    let ampq = AmpqPool::init(env!("CARGO_PKG_NAME")).await.unwrap();
-    ampq.create_channel("logger.service").await.unwrap();
-    ampq.set_delegate("logger.service", "logger.service.consumer", ampq_callback)
+    info!("service started...");
+
+    let amqp = AmqpPool::init(env!("CARGO_PKG_NAME"), &AMQP_TX_QUEUES).await.unwrap();
+    amqp.set_consumer(&AMQP_RX_QUEUES,amqp_consumer)
         .await
         .unwrap();
 
-    let state = Arc::new(AppState::init(ampq));
-    let router = router::init_app(&state).await.unwrap();
+    let ctrl_c = async {
+        tokio::signal::ctrl_c()
+            .await
+            .expect("failed to install Ctrl+C handler");
+    };
 
-    server::start_server(router).await;
+    #[cfg(unix)]
+    let terminate = async {
+        tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
+            .expect("failed to install signal handler")
+            .recv()
+            .await;
+    };
+
+    #[cfg(not(unix))]
+    let terminate = std::future::pending::<()>();
+
+    // remove this later 
+    amqp.broadcast("notify", b"I'm alive!").await.unwrap();
+    
+    tokio::select! {
+        _ = ctrl_c => (),
+        _ = terminate => (),
+    }
+
+    info!("gracefully stopped");
 }

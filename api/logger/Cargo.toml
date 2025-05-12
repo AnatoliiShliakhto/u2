@@ -13,4 +13,3 @@ license.workspace = true
 api-util = { path = "../../lib/api-util" }
 
 tokio = { version = "1.45.0", features = ["full"] }
-axum = { version = "0.8.4", features = ["tokio"] }

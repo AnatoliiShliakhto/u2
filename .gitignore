@@ -3,8 +3,8 @@
 /.fleet/
 /target/
 /node_modules/
-/compose/certificates
-/binaries
+/bin/**
+/cfg/certificates/**
 /package-lock.json
 /Cargo.lock
 /.env

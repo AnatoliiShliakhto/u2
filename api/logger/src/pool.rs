@@ -9,12 +9,12 @@ use ::std::{
 };
 use ::tokio::sync::Mutex;
 
-pub struct FilePool {
+pub struct Pool {
     path: String,
     pool: Mutex<HashMap<String, Arc<Mutex<RollingFileAppender>>>>,
 }
 
-impl FilePool {
+impl Pool {
     pub fn new(path: String) -> Self {
         Self {
             path,

@@ -1,27 +1,69 @@
-use ::api_util::{prometheus, handler, Error};
+use crate::state::AppState;
+use ::api_util::{Error, handler, prometheus};
 use ::axum::{Router, middleware::from_fn, routing::get};
 use ::axum_proxy::{TrimPrefix, TrimSuffix};
 use ::std::sync::Arc;
 
-pub async fn init_app(_state: &Arc<AppState>) -> Result<Router, Error> {
+use api_util::logger::{error, info};
+use axum::extract::State;
+use axum::response::IntoResponse;
+
+pub async fn init_app(state: &Arc<AppState>) -> Result<Router, Error> {
     let surrealdb_proxy =
         axum_proxy::builder_http("surrealdb:8000")?.build(TrimPrefix("/surrealdb"));
     let grafana_proxy = axum_proxy::builder_http("grafana:3000")?.build(TrimSuffix("/"));
-    let auth_proxy = axum_proxy::builder_http("auth-svc:80")?.build(TrimPrefix("/auth"));
-    let rabbitmq_proxy = axum_proxy::builder_http("rabbitmq:15672")?.build(TrimPrefix("/rabbitmq"));
+    let auth_proxy = axum_proxy::builder_http("auth")?.build(TrimPrefix("/auth"));
 
     let router = Router::new()
-        .route_service("/auth/{*path}", auth_proxy.clone())
-        .route_service("/auth", auth_proxy)
+        .route_service("/auth/{*path}", auth_proxy)
         .route_service("/grafana/{*path}", grafana_proxy.clone())
         .route_service("/grafana/", grafana_proxy.clone())
         .route_service("/grafana", grafana_proxy)
-        .route_service("/rabbitmq/{*path}", rabbitmq_proxy.clone())
-        .route_service("/rabbitmq/", rabbitmq_proxy.clone())
-        .route_service("/rabbitmq", rabbitmq_proxy)
-        .route_service("/surrealdb/{*path}", surrealdb_proxy)
+        .route_service("/surrealdb/{*path}", surrealdb_proxy.clone())
+        .route_service("/surrealdb", surrealdb_proxy)
+        .route("/broadcast-test", get(test))
+        .route("/access-test", get(test1))
+        .route("/auth-test", get(test2))
+        .route("/logger-info", get(log))
+        .route("/logger-error", get(log1))
         .route("/healthcheck", get(handler::healthcheck))
+        .with_state(state.clone())
         .route_layer(from_fn(prometheus::track_metrics));
 
     Ok(router)
+}
+
+async fn test(State(state): State<Arc<AppState>>) -> Result<impl IntoResponse, Error> {
+    state
+        .amqp
+        .broadcast("hello", b"hello from access service: broadcast")
+        .await?;
+
+    Ok(())
+}
+
+async fn test1(State(state): State<Arc<AppState>>) -> Result<impl IntoResponse, Error> {
+    state
+        .amqp
+        .send("access", "hello", b"hello from access service: self")
+        .await?;
+    Ok(())
+}
+
+async fn test2(State(state): State<Arc<AppState>>) -> Result<impl IntoResponse, Error> {
+    state
+        .amqp
+        .send("auth", "hello", b"hello from access service: auth")
+        .await?;
+    Ok(())
+}
+
+async fn log() -> Result<impl IntoResponse, Error> {
+    info!("Test logger: info");
+    Ok(())
+}
+
+async fn log1() -> Result<impl IntoResponse, Error> {
+    error!("Test logger: error");
+    Ok(())
 }

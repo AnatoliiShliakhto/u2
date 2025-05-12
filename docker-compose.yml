@@ -1,0 +1,363 @@
+services:
+
+  # SurrealDB TiKV cluster
+  pd0:
+    container_name: surrealdb-pd0
+    hostname: pd0
+    image: pingcap/pd:latest
+    networks:
+      - intranet
+#    ports:
+#      - "2379"
+    volumes:
+      - surrealdb:/data
+      - logs:/logs
+    command:
+      - --name=pd0
+      - --client-urls=http://0.0.0.0:2379
+      - --peer-urls=http://0.0.0.0:2380
+      - --advertise-client-urls=http://pd0:2379
+      - --advertise-peer-urls=http://pd0:2380
+      - --initial-cluster=pd0=http://pd0:2380,pd1=http://pd1:2380
+      - --data-dir=/data/pd0
+      - --log-file=/logs/surrealdb-pd0.log
+    restart: on-failure
+    healthcheck:
+      test: /pd-ctl health | jq -e ".[] | select(.name == \"$(hostname)\").health"
+      start_period: 5s
+      retries: 5
+      timeout: 10s
+
+  pd1:
+    container_name: surrealdb-pd1
+    hostname: pd1
+    image: pingcap/pd:latest
+    networks:
+      - intranet
+#    ports:
+#      - "2379"
+    volumes:
+      - surrealdb:/data
+      - logs:/logs
+    command:
+      - --name=pd1
+      - --client-urls=http://0.0.0.0:2379
+      - --peer-urls=http://0.0.0.0:2380
+      - --advertise-client-urls=http://pd1:2379
+      - --advertise-peer-urls=http://pd1:2380
+      - --initial-cluster=pd0=http://pd0:2380,pd1=http://pd1:2380
+      - --data-dir=/data/pd1
+      - --log-file=/logs/surrealdb-pd1.log
+    restart: on-failure
+    healthcheck:
+      test: /pd-ctl health | jq -e ".[] | select(.name == \"$(hostname)\").health"
+      start_period: 5s
+      retries: 5
+      timeout: 10s
+
+  tikv0:
+    container_name: surrealdb-tikv0
+    hostname: tikv0
+    image: pingcap/tikv:latest
+    networks:
+      - intranet
+    volumes:
+      - surrealdb:/data
+      - logs:/logs
+    command:
+      - --addr=0.0.0.0:20160
+      - --advertise-addr=tikv0:20160
+      - --status-addr=0.0.0.0:20180
+      - --data-dir=/data/tikv0
+      - --pd=pd0:2379,pd1:2379
+      - --log-file=/logs/surrealdb-tikv0.log
+    depends_on:
+      pd0:
+        condition: service_healthy
+      pd1:
+        condition: service_healthy
+    restart: on-failure
+    healthcheck:
+      test: /tikv-ctl --host $(hostname):20160 metrics
+      start_period: 5s
+      retries: 5
+      timeout: 10s
+
+  tikv1:
+    container_name: surrealdb-tikv1
+    hostname: tikv1
+    image: pingcap/tikv:latest
+    networks:
+      - intranet
+    volumes:
+      - surrealdb:/data
+      - logs:/logs
+    command:
+      - --addr=0.0.0.0:20160
+      - --advertise-addr=tikv1:20160
+      - --status-addr=0.0.0.0:20180
+      - --data-dir=/data/tikv1
+      - --pd=pd0:2379,pd1:2379
+      - --log-file=/logs/surrealdb-tikv1.log
+    depends_on:
+      pd0:
+        condition: service_healthy
+      pd1:
+        condition: service_healthy
+    restart: on-failure
+    healthcheck:
+      test: /tikv-ctl --host $(hostname):20160 metrics
+      start_period: 5s
+      retries: 5
+      timeout: 10s
+
+  surrealdb:
+    container_name: surrealdb
+    image: surrealdb/surrealdb:latest
+    user: root
+    networks:
+      - intranet
+    environment:
+      - SURREAL_USER=${DB_USER:-root}
+      - SURREAL_PASS=${DB_PASS:-root}
+      - SURREAL_PATH=tikv://pd0:2379
+    entrypoint:
+      - /surreal
+      - start
+    security_opt:
+      - no-new-privileges:true
+    depends_on:
+      tikv0:
+        condition: service_healthy
+      tikv1:
+        condition: service_healthy
+    restart: always
+    healthcheck:
+      test: ["CMD", "/surreal", "is-ready"]
+      interval: 5s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+
+# Prometheus
+
+  prometheus:
+    container_name: prometheus
+    image: prom/prometheus:latest
+    user: nobody
+#    ports:
+#      - "9090:9090"
+    networks:
+      - intranet
+    volumes:
+      - prometheus:/prometheus
+      - ./cfg/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=15d'
+      - '--web.enable-lifecycle'
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: wget --no-verbose --tries=1 --spider prometheus:9090/-/healthy || exit 1
+      interval: 5s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+
+# RabbitMQ AMQP
+
+  rabbitmq:
+    container_name: rabbitmq
+    image: rabbitmq:latest
+    networks:
+      - intranet
+    #ports:
+    #  - "5672:5672"
+    #  - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-root}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-root}
+      RABBITMQ_VHOST: ${RABBITMQ_VHOST:-/}
+      RABBITMQ_NODENAME: ${RABBITMQ_NODENAME:-rabbitmq}
+    volumes:
+      - rabbitmq:/var/lib/rabbitmq
+    configs:
+      - source: rabbitmq-plugins
+        target: /etc/rabbitmq/enabled_plugins
+      - source: rabbitmq-erlang-cookie
+        target: /var/lib/rabbitmq/.erlang.cookie
+        mode: 0400
+    restart: unless-stopped
+    healthcheck:
+      test: rabbitmq-diagnostics -q ping
+      interval: 5s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+# Grafana
+
+  grafana:
+    container_name: grafana
+    image: grafana/grafana:latest
+    #    ports:
+    #      - "3000:3000"
+    networks:
+      - intranet
+    volumes:
+      - grafana:/var/lib/grafana
+      - ./cfg/grafana/grafana.ini:/etc/grafana/grafana.ini
+      - ./cfg/grafana/provisioning:/etc/grafana/provisioning
+      - ./cfg/grafana/dashboards:/var/lib/grafana/dashboards
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_USER:-root}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASS:-root}
+      - GF_PATHS_PROVISIONING=/etc/grafana/provisioning
+      - GF_PLUGINS_PREINSTALL=grafana-surrealdb-datasource
+      - GF_DOMAIN=${DOMAIN:-localhost}
+    depends_on:
+      prometheus:
+        condition: service_healthy
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+    healthcheck:
+      test: wget --no-verbose --tries=1 --spider grafana:3000/api/health || exit 1
+      interval: 5s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+# Caddy reverse proxy
+
+  proxy-srv:
+    image: caddy:latest
+    restart: unless-stopped
+    depends_on:
+      access-svc:
+        condition: service_started
+    networks:
+      - intranet
+    ports:
+      - "443:443"
+    volumes:
+      - ./cfg/certificates:/etc/ssl/private:ro
+      - ./cfg/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+
+# Logger service
+
+  logger-svc:
+    container_name: logger-svc
+    hostname: logger
+    image: alpine:latest
+    networks:
+      - intranet
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - ./bin/logger:/logger
+      - logs:/logs
+    entrypoint: [ "/logger" ]
+    environment:
+      - LOG_DIR=/logs
+      - AMQP_URL=amqp://${RABBITMQ_USER:-root}:${RABBITMQ_PASS:-root}@rabbitmq:5672/%2f
+    restart: unless-stopped
+    depends_on:
+      rabbitmq:
+        condition: service_started
+    healthcheck:
+      test: wget --no-verbose --tries=1 $(hostname)/healthcheck || exit 1
+      interval: 5s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+# Access service
+
+  access-svc:
+    container_name: access-svc
+    hostname: access
+    image: alpine:latest
+#    ports:
+#      - "80:80"
+    networks:
+      - intranet
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      - AMQP_URL=amqp://${RABBITMQ_USER:-root}:${RABBITMQ_PASS:-root}@rabbitmq:5672/%2f
+    volumes:
+      - ./bin/access:/access
+    entrypoint: [ "/access" ]
+    depends_on:
+      auth-svc:
+        condition: service_started
+      rabbitmq:
+        condition: service_started
+    restart: unless-stopped
+    healthcheck:
+      test: wget --no-verbose --tries=1 --spider $(hostname)/healthcheck || exit 1
+      interval: 5s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+# Auth service
+
+  auth-svc:
+    container_name: auth-svc
+    hostname: auth
+    image: alpine:latest
+    networks:
+      - intranet
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      HOST: ${SERVICE_HOST:-0.0.0.0:80}
+      METRICS_HOST: ${METRICS_HOST:-0.0.0.0:3001}
+    volumes:
+      - ./bin/auth:/auth
+    entrypoint: [ "/auth" ]
+    restart: unless-stopped
+    depends_on:
+      rabbitmq:
+        condition: service_started
+      surrealdb:
+        condition: service_healthy
+    healthcheck:
+      test: wget --no-verbose --tries=1 $(hostname)/healthcheck || exit 1
+      interval: 5s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+# Volumes
+
+volumes:
+  logs:
+    driver: local
+  surrealdb:
+    driver: local
+  prometheus:
+    driver: local
+  rabbitmq:
+    driver: local
+  grafana:
+    driver: local
+
+# Networks
+
+networks:
+  intranet:
+    driver: bridge
+
+# Configs
+
+configs:
+  rabbitmq-plugins:
+    content: "[rabbitmq_management, rabbitmq_prometheus]."
+  rabbitmq-erlang-cookie:
+    content: ${RABBITMQ_COOKIE:-secret}

@@ -17,6 +17,8 @@ pub enum Error {
     #[error[transparent]]
     JsonRejection(#[from] JsonRejection),
     #[error("{0}")]
+    Amqp(String),
+    #[error("{0}")]
     Unknown(&'static str),
 }
 

@@ -1,8 +1,8 @@
 [package]
 name = "access"
-description = "Access proxy server"
+version = "0.0.1"
+description = "Access server"
 edition.workspace = true
-version.workspace = true
 keywords.workspace = true
 authors.workspace = true
 repository.workspace = true
@@ -10,16 +10,8 @@ readme.workspace = true
 license.workspace = true
 
 [dependencies]
-prometheus-metrics = { path = "../../lib/prometheus-metrics" }
+api-util = { path = "../../lib/api-util" }
 
-tracing-subscriber = { version = "0.3.19", features = ["env-filter", "json"] }
-thiserror = { version = "2.0.12" }
 tokio = { version = "1.45.0", features = ["full"] }
-dotenv = { version = "0.15.0" }
-
 axum = { version = "0.8.4", features = ["multipart", "macros", "tokio"] }
-axum-server = { version = "0.7.2" }
 axum-proxy = { version = "0.5.0", features = ["axum"] }
-
-serde = { version = "1.0.219", features = ["derive"] }
-serde_json = { version = "1.0.140" }

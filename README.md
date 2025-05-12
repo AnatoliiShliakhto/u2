@@ -1,19 +1,19 @@
-# RUST CMS
+# MILITARY UNIT MANAGEMENT SYSTEM v2.0
 
 <p><span style="color:red">IN DEVELOPMENT</span></p>
 
 ## Description
-Content management system written in [Rust](https://www.rust-lang.org) with 
+Management system written in [Rust](https://www.rust-lang.org) with 
 [WASM](https://developer.mozilla.org/en-US/docs/WebAssembly) `UI`
 and [cross-platform](https://en.wikipedia.org/wiki/Cross-platform) application
+based on microservice's architecture.
 
 ## Components 
 
->**SERVER** `back-end` \
+>**API-SERVER** `back-end` \
 **standalone server without additional dependencies**
 >>[Axum](https://axum.rs) - modular web framework built with Tokio, Tower, and Hyper \
->>[SurrealDB](https://surrealdb.com) - no-sql `embedded`, `local` or `remote` database \
->>[Utoipa](https://utoipa.rs) - OpenAPI documentation generator
+>>[SurrealDB](https://surrealdb.com) - no-sql `embedded`, `local` or `remote` database
 
 >**UI** `front-end` \
 **user interface based on `WASM`**
@@ -25,31 +25,77 @@ and [cross-platform](https://en.wikipedia.org/wiki/Cross-platform) application
 **cross-platform application**
 >>[Tauri **v2.0**](https://v2.tauri.app) - cross-platform app framework written in Rust
 
+## Docker compose
+- [x] SurrealDB - `TiKV cluster` no-sql database 
+- [x] RabbitMQ - `message broker` microservices messaging
+- [x] Prometheus - `monitoring` metrics
+- [x] Grafana - `monitoring` visualisation
+- [x] Caddy - `reverse proxy` https-to-http
+- [x] access - `api access` microservice `entire access-point`
+- [x] logger - `logging` microservice
+- [x] auth - `authorization` microservice
  
 ## Getting started
 
 ### Prerequirements
 
 >[LLVM](https://llvm.org) -OR- [Microsoft build tools](https://visualstudio.microsoft.com) - The LLVM Compiler Infrastructure \
->[CMAKE](https://cmake.org) - cross-platform, open-source build automation tool \
->[mkcert](https://github.com/FiloSottile/mkcert) - simple tool for creating local trusted development certificates 
+>[CMAKE](https://cmake.org) - cross-platform, open-source build automation tool
+>[Docker](https://www.docker.com/) - containerization platform \
+>[mkcert](https://github.com/FiloSottile/mkcert) - simple tool for creating local trusted development certificates
 
 1. Make localhost certificate for development purposes with [mkcert](https://github.com/FiloSottile/mkcert)
 ```bash
 mkcert -install
 mkcert localhost
 ```
-2. Rename `localhost.pem` to `ssl.crt` and `localhost-key.pem` to `private.key` and place them in `./publish/data/cert` folder
+2. Rename `localhost.pem` to `cert.pem` and `key.pem` to `private.key` and place them in `./cfg/certificates` folder
 
-3. Server configuration file `server-config.json` -OR- `.env` file -OR- `Environment variables` 
+3. Install cargo make crate
+```bash
+cargo install --force cargo-make
+```
+
+### Make commands
+
+* Install dependencies for cross-compilation 
+```bash
+cargo make install-cross
+```
+
+* Build entire server API microservices
+```bash
+cargo make build-api
+```
+
+* Compose and run a server with all dependencies
+```bash
+cargo make compose-up
+```
+
+* Build a single service
+```bash
+cargo make build-'service'
+```
+
+* Compose and rerun a single service
+```bash
+cargo make compose-'service'
+```
+
+* Build, compose, and rerun a single service
+```bash
+cargo make 'service'
+```
+
+* Remove all Docker containers 
+```bash
+cargo make compose-down
+```
+
+* Remove all Docker unused volumes
+```bash
+cargo make remove-volumes
+```
 
 ### Development...
-
-### Start SurrealDB
-```bash
-surreal start --log info --user root --password root --bind 0.0.0.0:9000 rocksdb://./publish/data/db
-```
-### Compile TailwindCSS assets
-```bash
-npx tailwindcss -i ./rustcms-ui/input.css -o ./rustcms-ui/resources/css/main.css --minify
-```

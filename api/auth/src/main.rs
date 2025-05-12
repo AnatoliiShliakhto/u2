@@ -1,40 +1,26 @@
-mod app;
-mod handlers;
+mod router;
+mod state;
+mod service;
 
-use crate::app::*;
-use ::prometheus_metrics::start_metrics_server;
-use ::std::{
-    sync::Arc,
-};
+use crate::{state::AppState, service::amqp::amqp_consumer};
+use ::api_util::{logger, server, amqp::AmqpPool};
+use ::std::sync::Arc;
 
-fn main() -> Result<(), Box<Error>> {
-    tokio::runtime::Builder::new_multi_thread()
-        .enable_all()
-        .thread_stack_size(10 * 1024 * 1024)
-        .build()
-        .unwrap()
-        .block_on(start_auth_server())
-}
+const AMQP_TX_QUEUES: [&str; 4] = ["broadcast", "logger", "access", "auth"];
+const AMQP_RX_QUEUES: [&str; 2] = ["broadcast", "auth"];
 
-async fn start_auth_server() -> Result<(), Box<Error>> {
-    dotenv::dotenv().ok();
-    tokio::spawn(start_metrics_server());
-
-    let addr = "0.0.0.0:80".parse().unwrap();
-
-    println!("HTTP server listening on {addr:?}");
-
-    let state = Arc::new(AppState::init());
-
-    let app = router::init_app(&state).await?.into_make_service();
-
-    let handle = axum_server::Handle::new();
-
-    axum_server::bind(addr)
-        .handle(handle)
-        .serve(app)
+#[tokio::main]
+async fn main() {
+    let amqp = Arc::new(AmqpPool::init(env!("CARGO_PKG_NAME"), &AMQP_TX_QUEUES).await.unwrap());
+    amqp.set_consumer(&AMQP_RX_QUEUES, amqp_consumer)
         .await
-        .map_err(|_| Box::new(Error::CustomError("Error starting HTTP server")))?;
+        .unwrap();
+    logger::amqp_logger(&amqp).await; // Logger queue "logger" must be initialized before this
 
-    Ok(())
+    let router = router::init_app(&Arc::new(AppState::init(&amqp))).await.unwrap();
+
+    // remove this later 
+    amqp.broadcast("notify", b"I'm alive!").await.unwrap();
+    
+    server::start_server(router).await
 }
