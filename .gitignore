@@ -1,0 +1,10 @@
+/.idea/
+/.vscode/
+/.fleet/
+/target/
+/node_modules/
+/compose/certificates
+/binaries
+/package-lock.json
+/Cargo.lock
+/.env

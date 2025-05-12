@@ -1,0 +1,75 @@
+[env]
+CARGO_MAKE_EXTEND_WORKSPACE_MAKEFILE = true
+
+[config]
+default_to_workspace = false
+
+[tasks.build]
+disabled = true
+
+[tasks.test]
+disabled = true
+
+[tasks.compose-up]
+script_runner = "@shell"
+script = '''
+docker-compose up -d
+'''
+
+[tasks.compose-down]
+script_runner = "@shell"
+script = '''
+docker-compose down
+'''
+
+[tasks.delete-volumes]
+script_runner = "@shell"
+script = '''
+docker volume prune --filter all=1
+'''
+
+# Access server
+
+[tasks.access-build]
+script_runner = "@shell"
+script = '''
+cross build --release --package access --target x86_64-unknown-linux-musl
+'''
+
+[tasks.access-docker]
+script_runner = "@shell"
+script = '''
+docker compose down -rmi access-srv
+docker compose up -d --no-deps --force-recreate --build access-srv
+'''
+
+[tasks.access]
+dependencies = ["access-build"]
+script_runner = "@shell"
+script = '''
+docker compose down -rmi access-srv
+docker compose up -d --no-deps --force-recreate --build access-srv
+'''
+
+# Authorization service
+
+[tasks.auth-build]
+script_runner = "@shell"
+script = '''
+cross build --release --package auth --target x86_64-unknown-linux-musl
+'''
+
+[tasks.auth-docker]
+script_runner = "@shell"
+script = '''
+docker compose down -rmi auth-svc
+docker compose up -d --no-deps --force-recreate --build auth-svc
+'''
+
+[tasks.auth]
+dependencies = ["auth-build"]
+script_runner = "@shell"
+script = '''
+docker compose down -rmi auth-svc
+docker compose up -d --no-deps --force-recreate --build auth-svc
+'''
