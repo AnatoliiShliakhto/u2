@@ -1,10 +1,8 @@
-mod util;
-mod model;
+pub mod amqp;
 mod error;
 pub mod handler;
+mod macros;
+mod model;
+mod util;
 
-pub use self::{
-    util::*, 
-    model::*,
-    error::*,
-};
+pub use self::{error::*, model::*, util::*};

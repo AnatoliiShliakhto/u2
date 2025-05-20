@@ -1,4 +1,4 @@
-use api_util::{amqp::{BasicAckOptions, DeliveryResult}, logger::{error, info}};
+use api_util::{amqp::{BasicAckOptions, DeliveryResult}, log::{error, info}};
 
 pub async fn amqp_consumer(delivery: DeliveryResult) {
     let Ok(Some(delivery)) = delivery else { return };

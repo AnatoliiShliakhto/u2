@@ -1,4 +1,4 @@
-use ::api_util::logger::{
+use ::api_util::log::{
     error,
     rolling_appender::{RollingFileAppender, Rotation},
 };

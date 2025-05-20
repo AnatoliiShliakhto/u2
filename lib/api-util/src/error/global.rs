@@ -15,9 +15,13 @@ pub enum Error {
     #[error[transparent]]
     HttpError(#[from] axum::http::Error),
     #[error[transparent]]
-    JsonRejection(#[from] JsonRejection),
+    SerdeJsonError(#[from] serde_json::Error),
+    #[error[transparent]]
+    DatabaseError(#[from] surrealdb::Error),
     #[error("{0}")]
     Amqp(String),
+    #[error[transparent]]
+    JsonRejection(#[from] JsonRejection),
     #[error("{0}")]
     Unknown(&'static str),
 }

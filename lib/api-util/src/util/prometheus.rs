@@ -18,10 +18,10 @@ fn metrics_app() -> Router {
     Router::new().route("/metrics", get(move || ready(recorder_handle.render())))
 }
 
-pub async fn start_metrics_server(host: String, shutdown_handle: Option<Handle>) {
-    let mut metric_srv = axum_server::bind(host.parse().unwrap_or(SocketAddr::V4(
+pub async fn start_metrics_server(shutdown_handle: Option<Handle>) {
+    let mut metric_srv = axum_server::bind(SocketAddr::V4(
         SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), 3001),
-    )));
+    ));
 
     if let Some(handler) = shutdown_handle {
         metric_srv = metric_srv.handle(handler)

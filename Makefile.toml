@@ -124,13 +124,33 @@ docker compose up -d --no-deps --force-recreate --build logger-svc
 [tasks.logger]
 dependencies = ["build-logger", "compose-logger"]
 
+# System service
+
+[tasks.build-system]
+script_runner = "@shell"
+script = '''
+cross build --release --package system --target x86_64-unknown-linux-musl
+rm -f ./bin/system
+cp ./target/x86_64-unknown-linux-musl/release/system ./bin/system
+'''
+
+[tasks.compose-system]
+script_runner = "@shell"
+script = '''
+docker compose down system-svc
+docker compose up -d --no-deps --force-recreate --build system-svc
+'''
+
+[tasks.system]
+dependencies = ["build-system", "compose-system"]
+
 # Batch tasks
 
 [tasks.build-api]
-dependencies = ["build-logger", "build-access", "build-auth"]
+dependencies = ["build-logger", "build-system", "build-access", "build-auth"]
 
 [tasks.compose-api]
-dependencies = ["compose-logger", "compose-auth", "compose-access"]
+dependencies = ["compose-logger", "compose-system", "compose-auth", "compose-access"]
 
 [tasks.install-dioxus]
 install_crate = "dioxus-cli"

@@ -1,34 +1,44 @@
-use crate::amqp::AmqpPool;
+use crate::amqp::{AMQPMessageOptions, AMQPPool, ExchangeKind};
 use ::std::{io, sync::Arc, sync::Mutex};
-use ::tracing_subscriber::{
-    EnvFilter, filter::LevelFilter, fmt::layer, layer::SubscriberExt, util::SubscriberInitExt,
-};
-use tracing_appender::{
+use ::tracing_appender::{
     non_blocking::WorkerGuard,
     rolling::{RollingFileAppender, Rotation},
+};
+use ::tracing_subscriber::{
+    EnvFilter, filter::LevelFilter, fmt::layer, layer::SubscriberExt, util::SubscriberInitExt,
 };
 
 pub use ::tracing::{debug, error, info, trace, warn};
 pub use ::tracing_appender::rolling as rolling_appender;
 
 pub struct LoggerWriter {
-    amqp: Arc<AmqpPool>,
+    amqp: Arc<AMQPPool>,
 }
 
 impl LoggerWriter {
-    pub fn new(amqp: &Arc<AmqpPool>) -> Self {
-        Self { amqp: amqp.clone() }
+    pub fn init(pool: &Arc<AMQPPool>) -> Self {
+        Self {
+            amqp: pool.clone(),
+        }
     }
 }
 
 impl io::Write for LoggerWriter {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        let ampq = self.amqp.clone();
+        let pool = self.amqp.clone();
         let buf_owned = buf.to_vec();
 
         tokio::spawn(async move {
-            if let Err(err) = ampq.send("logger", "log", &buf_owned).await {
-                error!("Error sending message: {}", err);
+            if let Err(err) = pool
+                .send(
+                    ExchangeKind::Topic,
+                    "log.write",
+                    AMQPMessageOptions::default().with_app_id(),
+                    &buf_owned,
+                )
+                .await
+            {
+                error!("'logger.write' sending AMQP message: {}", err);
             };
         });
 
@@ -58,7 +68,7 @@ pub fn stdout_logger() {
         .init();
 }
 
-pub async fn amqp_logger(amqp: &Arc<AmqpPool>) {
+pub async fn amqp_logger(pool: &Arc<AMQPPool>) {
     let env_filter = EnvFilter::builder()
         .with_default_directive(LevelFilter::INFO.into())
         .from_env_lossy();
@@ -67,7 +77,7 @@ pub async fn amqp_logger(amqp: &Arc<AmqpPool>) {
     let amqp_layer = layer()
         .compact()
         .with_ansi(false)
-        .with_writer(Mutex::new(LoggerWriter::new(amqp)));
+        .with_writer(Mutex::new(LoggerWriter::init(pool)));
 
     tracing_subscriber::registry()
         .with(stdout_layer)

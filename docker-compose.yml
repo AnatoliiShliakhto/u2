@@ -1,115 +1,113 @@
 services:
 
-  # SurrealDB TiKV cluster
-  pd0:
-    container_name: surrealdb-pd0
-    hostname: pd0
-    image: pingcap/pd:latest
-    networks:
-      - intranet
-#    ports:
-#      - "2379"
-    volumes:
-      - surrealdb:/data
-      - logs:/logs
-    command:
-      - --name=pd0
-      - --client-urls=http://0.0.0.0:2379
-      - --peer-urls=http://0.0.0.0:2380
-      - --advertise-client-urls=http://pd0:2379
-      - --advertise-peer-urls=http://pd0:2380
-      - --initial-cluster=pd0=http://pd0:2380,pd1=http://pd1:2380
-      - --data-dir=/data/pd0
-      - --log-file=/logs/surrealdb-pd0.log
-    restart: on-failure
-    healthcheck:
-      test: /pd-ctl health | jq -e ".[] | select(.name == \"$(hostname)\").health"
-      start_period: 5s
-      retries: 5
-      timeout: 10s
+# SurrealDB TiKV cluster
+#  pd0:
+#    container_name: surrealdb-pd0
+#    hostname: pd0
+#    image: pingcap/pd:latest
+#    networks:
+#      - intranet
+#    volumes:
+#      - surrealdb:/data
+#      - logs:/logs
+#    command:
+#      - --name=pd0
+#      - --client-urls=http://0.0.0.0:2379
+#      - --peer-urls=http://0.0.0.0:2380
+#      - --advertise-client-urls=http://pd0:2379
+#      - --advertise-peer-urls=http://pd0:2380
+#      - --initial-cluster=pd0=http://pd0:2380,pd1=http://pd1:2380
+#      - --data-dir=/data/pd0
+#      - --log-file=/logs/surrealdb-pd0.log
+#    restart: on-failure
+#    healthcheck:
+#      test: /pd-ctl health | jq -e ".[] | select(.name == \"$(hostname)\").health"
+#      start_period: 5s
+#      retries: 5
+#      timeout: 10s
+#
+#  pd1:
+#    container_name: surrealdb-pd1
+#    hostname: pd1
+#    image: pingcap/pd:latest
+#    networks:
+#      - intranet
+#    volumes:
+#      - surrealdb:/data
+#      - logs:/logs
+#    command:
+#      - --name=pd1
+#      - --client-urls=http://0.0.0.0:2379
+#      - --peer-urls=http://0.0.0.0:2380
+#      - --advertise-client-urls=http://pd1:2379
+#      - --advertise-peer-urls=http://pd1:2380
+#      - --initial-cluster=pd0=http://pd0:2380,pd1=http://pd1:2380
+#      - --data-dir=/data/pd1
+#      - --log-file=/logs/surrealdb-pd1.log
+#    restart: on-failure
+#    healthcheck:
+#      test: /pd-ctl health | jq -e ".[] | select(.name == \"$(hostname)\").health"
+#      start_period: 5s
+#      retries: 5
+#      timeout: 10s
+#
+#  tikv0:
+#    container_name: surrealdb-tikv0
+#    hostname: tikv0
+#    image: pingcap/tikv:latest
+#    networks:
+#      - intranet
+#    volumes:
+#      - surrealdb:/data
+#      - logs:/logs
+#    command:
+#      - --addr=0.0.0.0:20160
+#      - --advertise-addr=tikv0:20160
+#      - --status-addr=0.0.0.0:20180
+#      - --data-dir=/data/tikv0
+#      - --pd=pd0:2379,pd1:2379
+#      - --log-file=/logs/surrealdb-tikv0.log
+#    depends_on:
+#      pd0:
+#        condition: service_healthy
+#      pd1:
+#        condition: service_healthy
+#    restart: on-failure
+#    healthcheck:
+#      test: /tikv-ctl --host $(hostname):20160 metrics
+#      start_period: 5s
+#      retries: 5
+#      timeout: 10s
+#
+#  tikv1:
+#    container_name: surrealdb-tikv1
+#    hostname: tikv1
+#    image: pingcap/tikv:latest
+#    networks:
+#      - intranet
+#    volumes:
+#      - surrealdb:/data
+#      - logs:/logs
+#    command:
+#      - --addr=0.0.0.0:20160
+#      - --advertise-addr=tikv1:20160
+#      - --status-addr=0.0.0.0:20180
+#      - --data-dir=/data/tikv1
+#      - --pd=pd0:2379,pd1:2379
+#      - --log-file=/logs/surrealdb-tikv1.log
+#    depends_on:
+#      pd0:
+#        condition: service_healthy
+#      pd1:
+#        condition: service_healthy
+#    restart: on-failure
+#    healthcheck:
+#      test: /tikv-ctl --host $(hostname):20160 metrics
+#      start_period: 5s
+#      retries: 5
+#      timeout: 10s
 
-  pd1:
-    container_name: surrealdb-pd1
-    hostname: pd1
-    image: pingcap/pd:latest
-    networks:
-      - intranet
-#    ports:
-#      - "2379"
-    volumes:
-      - surrealdb:/data
-      - logs:/logs
-    command:
-      - --name=pd1
-      - --client-urls=http://0.0.0.0:2379
-      - --peer-urls=http://0.0.0.0:2380
-      - --advertise-client-urls=http://pd1:2379
-      - --advertise-peer-urls=http://pd1:2380
-      - --initial-cluster=pd0=http://pd0:2380,pd1=http://pd1:2380
-      - --data-dir=/data/pd1
-      - --log-file=/logs/surrealdb-pd1.log
-    restart: on-failure
-    healthcheck:
-      test: /pd-ctl health | jq -e ".[] | select(.name == \"$(hostname)\").health"
-      start_period: 5s
-      retries: 5
-      timeout: 10s
-
-  tikv0:
-    container_name: surrealdb-tikv0
-    hostname: tikv0
-    image: pingcap/tikv:latest
-    networks:
-      - intranet
-    volumes:
-      - surrealdb:/data
-      - logs:/logs
-    command:
-      - --addr=0.0.0.0:20160
-      - --advertise-addr=tikv0:20160
-      - --status-addr=0.0.0.0:20180
-      - --data-dir=/data/tikv0
-      - --pd=pd0:2379,pd1:2379
-      - --log-file=/logs/surrealdb-tikv0.log
-    depends_on:
-      pd0:
-        condition: service_healthy
-      pd1:
-        condition: service_healthy
-    restart: on-failure
-    healthcheck:
-      test: /tikv-ctl --host $(hostname):20160 metrics
-      start_period: 5s
-      retries: 5
-      timeout: 10s
-
-  tikv1:
-    container_name: surrealdb-tikv1
-    hostname: tikv1
-    image: pingcap/tikv:latest
-    networks:
-      - intranet
-    volumes:
-      - surrealdb:/data
-      - logs:/logs
-    command:
-      - --addr=0.0.0.0:20160
-      - --advertise-addr=tikv1:20160
-      - --status-addr=0.0.0.0:20180
-      - --data-dir=/data/tikv1
-      - --pd=pd0:2379,pd1:2379
-      - --log-file=/logs/surrealdb-tikv1.log
-    depends_on:
-      pd0:
-        condition: service_healthy
-      pd1:
-        condition: service_healthy
-    restart: on-failure
-    healthcheck:
-      test: /tikv-ctl --host $(hostname):20160 metrics
-      start_period: 5s
-      retries: 5
-      timeout: 10s
+# SurrealDB
 
   surrealdb:
     container_name: surrealdb
@@ -118,19 +116,22 @@ services:
     networks:
       - intranet
     environment:
-      - SURREAL_USER=${DB_USER:-root}
-      - SURREAL_PASS=${DB_PASS:-root}
-      - SURREAL_PATH=tikv://pd0:2379
+      - SURREAL_USER=${DB_ROOT_USER:-root}
+      - SURREAL_PASS=${DB_ROOT_PASS:-root}
+#      - SURREAL_PATH=tikv://pd0:2379 # TiKV cluster
+      - SURREAL_PATH=rocksdb:/data # standalone
     entrypoint:
       - /surreal
       - start
+    volumes:
+      - surrealdb:/data # standalone
     security_opt:
       - no-new-privileges:true
-    depends_on:
-      tikv0:
-        condition: service_healthy
-      tikv1:
-        condition: service_healthy
+#    depends_on:
+#      tikv0:
+#        condition: service_healthy
+#      tikv1:
+#        condition: service_healthy
     restart: always
     healthcheck:
       test: ["CMD", "/surreal", "is-ready"]
@@ -174,9 +175,9 @@ services:
     image: rabbitmq:latest
     networks:
       - intranet
-    #ports:
-    #  - "5672:5672"
-    #  - "15672:15672"
+#    ports:
+#      - "5672:5672"
+#      - "15672:15672"
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-root}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-root}
@@ -246,6 +247,27 @@ services:
     volumes:
       - ./cfg/certificates:/etc/ssl/private:ro
       - ./cfg/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+        
+  rdesktop:
+    image: lscr.io/linuxserver/rdesktop:ubuntu-xfce
+    container_name: rdesktop
+    security_opt:
+      - seccomp:unconfined #optional
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Etc/UTC
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock #optional
+      - /path/to/rdesktop/data:/config #optional
+    ports:
+      - "3380:3389"
+    networks:
+      - intranet
+    devices:
+      - /dev/dri:/dev/dri #optional
+    shm_size: "1gb" #optional
+    restart: unless-stopped
 
 # Logger service
 
@@ -262,8 +284,8 @@ services:
       - logs:/logs
     entrypoint: [ "/logger" ]
     environment:
-      - LOG_DIR=/logs
-      - AMQP_URL=amqp://${RABBITMQ_USER:-root}:${RABBITMQ_PASS:-root}@rabbitmq:5672/%2f
+      LOGS_DIR: /logs
+      AMQP_URL: amqp://${RABBITMQ_USER:-root}:${RABBITMQ_PASS:-root}@rabbitmq:5672/%2f
     restart: unless-stopped
     depends_on:
       rabbitmq:
@@ -275,27 +297,53 @@ services:
       retries: 3
       start_period: 10s
 
+  # Auth service
+
+  system-svc:
+    container_name: system-svc
+    hostname: system
+    image: alpine:latest
+    networks:
+      - intranet
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      AMQP_URL: amqp://${RABBITMQ_USER:-root}:${RABBITMQ_PASS:-root}@rabbitmq:5672/%2f
+      DB_URL: ${DB_URL:-surrealdb:8000}
+      DB_NAMESPACE: ${DB_NAMESPACE:-u2}
+      DB_USER: ${DB_ROOT_USER:-root}
+      DB_PASS: ${DB_ROOT_PASS:-root}
+      SERVICES_DB_CFG: >
+        [
+          { "database": "${AUTH_DB_NAME:-core}", "user": "${AUTH_DB_USER:-root}", "password": "${AUTH_DB_PASS:-root}" }
+        ]
+    volumes:
+      - ./bin/system:/system
+    entrypoint: [ "/system" ]
+    restart: unless-stopped
+    depends_on:
+      rabbitmq:
+        condition: service_started
+      surrealdb:
+        condition: service_healthy
+
 # Access service
 
   access-svc:
     container_name: access-svc
     hostname: access
     image: alpine:latest
-#    ports:
-#      - "80:80"
     networks:
       - intranet
     security_opt:
       - no-new-privileges:true
     environment:
-      - AMQP_URL=amqp://${RABBITMQ_USER:-root}:${RABBITMQ_PASS:-root}@rabbitmq:5672/%2f
+      AMQP_URL: amqp://${RABBITMQ_USER:-root}:${RABBITMQ_PASS:-root}@rabbitmq:5672/%2f
     volumes:
       - ./bin/access:/access
     entrypoint: [ "/access" ]
     depends_on:
-      auth-svc:
-        condition: service_started
-      rabbitmq:
+      system-svc:
         condition: service_started
     restart: unless-stopped
     healthcheck:
@@ -316,17 +364,19 @@ services:
     security_opt:
       - no-new-privileges:true
     environment:
-      HOST: ${SERVICE_HOST:-0.0.0.0:80}
-      METRICS_HOST: ${METRICS_HOST:-0.0.0.0:3001}
+      AMQP_URL: amqp://${RABBITMQ_USER:-root}:${RABBITMQ_PASS:-root}@rabbitmq:5672/%2f
+      DB_URL: ${DB_URL:-surrealdb:8000}
+      DB_NAMESPACE: ${DB_NAMESPACE:-u2}
+      DB_DATABASE: ${AUTH_DB_NAME:-core}
+      DB_USER: ${AUTH_DB_USER:-root}
+      DB_PASS: ${AUTH_DB_PASS:-root}
     volumes:
       - ./bin/auth:/auth
     entrypoint: [ "/auth" ]
     restart: unless-stopped
     depends_on:
-      rabbitmq:
+      system-svc:
         condition: service_started
-      surrealdb:
-        condition: service_healthy
     healthcheck:
       test: wget --no-verbose --tries=1 $(hostname)/healthcheck || exit 1
       interval: 5s

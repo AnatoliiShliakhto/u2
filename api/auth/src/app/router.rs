@@ -1,12 +1,10 @@
-use crate::state::AppState;
-use ::api_util::{Error, handler, prometheus};
+use ::api_util::{handler, prometheus};
 use ::axum::{Router, middleware::from_fn, routing::get};
-use ::std::sync::Arc;
 
-pub async fn init_app(_state: &Arc<AppState>) -> Result<Router, Error> {
+pub fn init_app() -> Router {
     let router = Router::new()
         .route("/healthcheck", get(handler::healthcheck))
         .route_layer(from_fn(prometheus::track_metrics));
 
-    Ok(router)
+    router
 }

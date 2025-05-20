@@ -11,6 +11,6 @@
 :443 {
     tls /etc/ssl/private/cert.pem /etc/ssl/private/key.pem
 	reverse_proxy http://access:80 {
-     		header_up Host {http.reverse_proxy.upstream.host}
+        header_up Host {http.reverse_proxy.upstream.host}
    	}
 }
