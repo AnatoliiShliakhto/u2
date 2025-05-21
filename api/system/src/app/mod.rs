@@ -1,5 +1,5 @@
 mod state;
 
-pub use self:: {
+pub(crate) use self:: {
     state::*,
 };

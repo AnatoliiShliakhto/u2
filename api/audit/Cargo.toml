@@ -1,0 +1,17 @@
+[package]
+name = "audit"
+version = "0.0.1"
+description = "Audit service"
+edition.workspace = true
+keywords.workspace = true
+authors.workspace = true
+repository.workspace = true
+readme.workspace = true
+license.workspace = true
+
+[dependencies]
+api-util = { path = "../../lib/api-util" }
+
+axum = { version = "0.8.4", features = ["tokio"] }
+surrealdb = { version = "2.3.2" }
+tokio = { version = "1.45.0", features = ["full"] }

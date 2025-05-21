@@ -1,0 +1,1 @@
+DEFINE PARAM $db_current_migration VALUE $migration;

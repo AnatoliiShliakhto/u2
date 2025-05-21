@@ -3,8 +3,12 @@
 /.fleet/
 /target/
 /node_modules/
-/bin/**
-/cfg/certificates/**
+/bin/
 /package-lock.json
 /Cargo.lock
 /.env
+/cfg/
+!/cfg/caddy/**
+!/cfg/grafana/**
+!/cfg/prometheus/**
+!/cfg/certificates/.gitkeep

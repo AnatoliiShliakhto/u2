@@ -1,2 +1,2 @@
-pub mod amqp;
-pub mod pool;
+pub(crate) mod amqp;
+pub(crate) mod pool;

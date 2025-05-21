@@ -25,4 +25,4 @@ serde = { version = "1.0.219", features = ["derive"] }
 serde_json = { version = "1.0.140" }
 thiserror = { version = "2.0.12" }
 deadpool-lapin = { version = "0.12.1", features = ["serde"] }
-surrealdb = { version = "2.3.2", default-features = false }
+surrealdb = { version = "2.3.2", default-features = false, features = ["protocol-ws"] }

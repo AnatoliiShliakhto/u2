@@ -115,6 +115,8 @@ services:
     user: root
     networks:
       - intranet
+    ports:
+      - "8000:8000" # debug only
     environment:
       - SURREAL_USER=${DB_ROOT_USER:-root}
       - SURREAL_PASS=${DB_ROOT_PASS:-root}
@@ -146,8 +148,8 @@ services:
     container_name: prometheus
     image: prom/prometheus:latest
     user: nobody
-#    ports:
-#      - "9090:9090"
+    ports:
+      - "9090:9090" # debug only
     networks:
       - intranet
     volumes:
@@ -175,9 +177,9 @@ services:
     image: rabbitmq:latest
     networks:
       - intranet
-#    ports:
+    ports:
 #      - "5672:5672"
-#      - "15672:15672"
+      - "15672:15672" # debug only
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-root}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-root}
@@ -204,8 +206,8 @@ services:
   grafana:
     container_name: grafana
     image: grafana/grafana:latest
-    #    ports:
-    #      - "3000:3000"
+    ports:
+      - "3000:3000" # debug only
     networks:
       - intranet
     volumes:
@@ -259,7 +261,7 @@ services:
       - TZ=Etc/UTC
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock #optional
-      - /path/to/rdesktop/data:/config #optional
+      - ./cfg/rdesktop:/config #optional
     ports:
       - "3380:3389"
     networks:
@@ -309,16 +311,19 @@ services:
       - no-new-privileges:true
     environment:
       AMQP_URL: amqp://${RABBITMQ_USER:-root}:${RABBITMQ_PASS:-root}@rabbitmq:5672/%2f
+      DATA_PATH: ${DATA_PATH:-/etc/u2}
       DB_URL: ${DB_URL:-surrealdb:8000}
       DB_NAMESPACE: ${DB_NAMESPACE:-u2}
       DB_USER: ${DB_ROOT_USER:-root}
       DB_PASS: ${DB_ROOT_PASS:-root}
       SERVICES_DB_CFG: >
         [
-          { "database": "${AUTH_DB_NAME:-core}", "user": "${AUTH_DB_USER:-root}", "password": "${AUTH_DB_PASS:-root}" }
+          { "database": "${AUTH_DB_NAME:-core}", "user": "${AUTH_DB_USER:-root}", "password": "${AUTH_DB_PASS:-root}" },
+          { "database": "${AUDIT_DB_NAME:-core}", "user": "${AUDIT_DB_USER:-root}", "password": "${AUDIT_DB_PASS:-root}" }
         ]
     volumes:
       - ./bin/system:/system
+      - ./bin/cfg/system:/etc/u2
     entrypoint: [ "/system" ]
     restart: unless-stopped
     depends_on:
@@ -365,6 +370,7 @@ services:
       - no-new-privileges:true
     environment:
       AMQP_URL: amqp://${RABBITMQ_USER:-root}:${RABBITMQ_PASS:-root}@rabbitmq:5672/%2f
+      DATA_PATH: ${DATA_PATH:-/etc/u2}
       DB_URL: ${DB_URL:-surrealdb:8000}
       DB_NAMESPACE: ${DB_NAMESPACE:-u2}
       DB_DATABASE: ${AUTH_DB_NAME:-core}
@@ -372,7 +378,41 @@ services:
       DB_PASS: ${AUTH_DB_PASS:-root}
     volumes:
       - ./bin/auth:/auth
+      - ./cfg/auth:/etc/u2
     entrypoint: [ "/auth" ]
+    restart: unless-stopped
+    depends_on:
+      system-svc:
+        condition: service_started
+    healthcheck:
+      test: wget --no-verbose --tries=1 $(hostname)/healthcheck || exit 1
+      interval: 5s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # Audit service
+
+  audit-svc:
+    container_name: audit-svc
+    hostname: audit
+    image: alpine:latest
+    networks:
+      - intranet
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      AMQP_URL: amqp://${RABBITMQ_USER:-root}:${RABBITMQ_PASS:-root}@rabbitmq:5672/%2f
+      DATA_PATH: ${DATA_PATH:-/etc/u2}
+      DB_URL: ${DB_URL:-surrealdb:8000}
+      DB_NAMESPACE: ${DB_NAMESPACE:-u2}
+      DB_DATABASE: ${AUDIT_DB_NAME:-core}
+      DB_USER: ${AUDIT_DB_USER:-root}
+      DB_PASS: ${AUDIT_DB_PASS:-root}
+    volumes:
+      - ./bin/audit:/audit
+      - ./cfg/audit:/etc/u2
+    entrypoint: [ "/audit" ]
     restart: unless-stopped
     depends_on:
       system-svc:

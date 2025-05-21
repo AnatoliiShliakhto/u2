@@ -1,29 +1,19 @@
 use ::api_util::{Error, amqp::AMQPPool, amqp_init};
-use ::std::sync::{Arc, Mutex};
+use ::std::sync::{Arc, OnceLock};
 
 #[derive(Default)]
 pub struct AppState {
-    amqp: Mutex<Option<Arc<AMQPPool>>>,
+    amqp: OnceLock<Arc<AMQPPool>>,
 }
 
 impl AppState {
     pub async fn init(&self) -> Result<(), Error> {
         let amqp = amqp_init!();
-
-        self.amqp
-            .lock()
-            .map_err(|_| Error::Unknown("failed to initialize AMQP pool"))?
-            .replace(amqp);
-
+        self.amqp.get_or_init(|| amqp);
         Ok(())
     }
 
-    pub fn amqp(&self) -> Arc<AMQPPool> {
-        self.amqp
-            .lock()
-            .expect("failed to lock AMQP pool")
-            .as_ref()
-            .expect("AMQP pool isn't initialized")
-            .clone()
+    pub fn amqp(&self) -> &Arc<AMQPPool> {
+        self.amqp.get().expect("AMQP pool not initialized")
     }
 }

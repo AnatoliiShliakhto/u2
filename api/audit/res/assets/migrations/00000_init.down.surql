@@ -1,6 +1,6 @@
 BEGIN TRANSACTION;
 
-REMOVE PARAM $db_migrations;
+REMOVE TABLE IF EXISTS test_table;
 
 RETURN true;
 

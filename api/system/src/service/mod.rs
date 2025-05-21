@@ -1,1 +1,1 @@
-pub mod amqp;
+pub(crate) mod amqp;

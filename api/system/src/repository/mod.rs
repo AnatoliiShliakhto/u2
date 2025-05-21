@@ -1,1 +1,1 @@
-pub mod migration;
+pub(crate) mod migration;

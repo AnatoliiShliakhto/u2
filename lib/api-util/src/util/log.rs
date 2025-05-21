@@ -38,7 +38,7 @@ impl io::Write for LoggerWriter {
                 )
                 .await
             {
-                error!("'logger.write' sending AMQP message: {}", err);
+                eprintln!("'logger.write' sending AMQP message: {}", err);
             };
         });
 

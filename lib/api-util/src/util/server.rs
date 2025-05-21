@@ -20,7 +20,7 @@ pub async fn start_server(router: Router) {
         .serve(router.into_make_service())
         .await
         .map_err(|err| {
-            error!("error starting HTTP server: {}", err);
+            error!("failed to start HTTP server: {}", err);
         })
         .expect("failed to start server");
 

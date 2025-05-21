@@ -71,7 +71,9 @@ script_runner = "@shell"
 script = '''
 cross build --release --package access --target x86_64-unknown-linux-musl
 rm -f ./bin/access
+rm -rf ./cfg/access
 cp ./target/x86_64-unknown-linux-musl/release/access ./bin/access
+cp -rf ./api/access/res/assets/* ./cfg/access/*
 '''
 
 [tasks.compose-access]
@@ -90,8 +92,10 @@ dependencies = ["build-access", "compose-access"]
 script_runner = "@shell"
 script = '''
 cross build --release --package auth --target x86_64-unknown-linux-musl
-rm -f ./bin/auth-svc
+rm -f ./bin/auth
+rm -rf ./cfg/auth
 cp ./target/x86_64-unknown-linux-musl/release/auth ./bin/auth
+cp -rf ./api/auth/res/assets/* ./cfg/auth/*
 '''
 
 [tasks.compose-auth]
@@ -131,7 +135,9 @@ script_runner = "@shell"
 script = '''
 cross build --release --package system --target x86_64-unknown-linux-musl
 rm -f ./bin/system
+rm -rf ./cfg/system
 cp ./target/x86_64-unknown-linux-musl/release/system ./bin/system
+cp -rf ./api/system/res/assets/* ./cfg/system/*
 '''
 
 [tasks.compose-system]
@@ -144,13 +150,35 @@ docker compose up -d --no-deps --force-recreate --build system-svc
 [tasks.system]
 dependencies = ["build-system", "compose-system"]
 
+# Audit service
+
+[tasks.build-audit]
+script_runner = "@shell"
+script = '''
+cross build --release --package audit --target x86_64-unknown-linux-musl
+rm -f ./bin/audit
+rm -rf ./cfg/audit
+cp ./target/x86_64-unknown-linux-musl/release/audit ./bin/audit
+cp -rf ./api/audit/res/assets/* ./cfg/audit/*
+'''
+
+[tasks.compose-audit]
+script_runner = "@shell"
+script = '''
+docker compose down audit-svc
+docker compose up -d --no-deps --force-recreate --build audit-svc
+'''
+
+[tasks.audit]
+dependencies = ["build-audit", "compose-audit"]
+
 # Batch tasks
 
 [tasks.build-api]
-dependencies = ["build-logger", "build-system", "build-access", "build-auth"]
+dependencies = ["build-logger", "build-system", "build-access", "build-auth", "build-audit"]
 
 [tasks.compose-api]
-dependencies = ["compose-logger", "compose-system", "compose-auth", "compose-access"]
+dependencies = ["compose-logger", "compose-system", "compose-auth", "compose-access", "compose-audit"]
 
 [tasks.install-dioxus]
 install_crate = "dioxus-cli"

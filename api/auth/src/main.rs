@@ -18,7 +18,7 @@ async fn main() -> Result<(), Box<Error>> {
 
     let amqp = APP.amqp();
 
-    log::amqp_logger(&amqp).await;
+    log::amqp_logger(amqp).await;
 
     amqp.set_topic_delegate("auth.svc", amqp_consumer).await?;
     amqp.set_broadcast_delegate(amqp_consumer).await?;

@@ -16,11 +16,11 @@ async fn main() -> Result<(), Box<Error>> {
     APP.init().await?;
 
     let amqp = APP.amqp();
-    
+
     log::amqp_logger(amqp).await;
 
-    amqp.set_topic_delegate("access.svc", amqp_consumer).await?;
-    amqp.set_broadcast_delegate(amqp_consumer).await?;
+    amqp.set_topic_delegate("audit.svc", amqp_consumer).await?;
+//    amqp.set_broadcast_delegate(amqp_consumer).await?;
 
     server::start_server(init_app()).await;
 

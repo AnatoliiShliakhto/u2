@@ -5,7 +5,7 @@ members = [
     "api/access",
     "api/auth",
     "api/logger"
-, "api/system"]
+, "api/system", "api/audit"]
 default-members = ["api/access"]
 
 [workspace.package]
