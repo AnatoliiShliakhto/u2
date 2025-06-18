@@ -71,9 +71,7 @@ script_runner = "@shell"
 script = '''
 cross build --release --package access --target x86_64-unknown-linux-musl
 rm -f ./bin/access
-rm -rf ./cfg/access
 cp ./target/x86_64-unknown-linux-musl/release/access ./bin/access
-cp -rf ./api/access/res/assets/* ./cfg/access/*
 '''
 
 [tasks.compose-access]
@@ -135,9 +133,7 @@ script_runner = "@shell"
 script = '''
 cross build --release --package system --target x86_64-unknown-linux-musl
 rm -f ./bin/system
-rm -rf ./cfg/system
 cp ./target/x86_64-unknown-linux-musl/release/system ./bin/system
-cp -rf ./api/system/res/assets/* ./cfg/system/*
 '''
 
 [tasks.compose-system]

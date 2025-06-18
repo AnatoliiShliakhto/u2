@@ -1,3 +1,3 @@
-mod global;
+mod error;
 
-pub use self::global::Error;
+pub use self::error::Error;

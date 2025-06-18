@@ -2,6 +2,7 @@
 use super::capabilities::Capabilities;
 use ::base64::{Engine, engine::general_purpose::STANDARD};
 use ::bitflags::Flags;
+use ::std::collections::HashMap;
 
 #[derive(Clone)]
 pub struct Permissions {
@@ -9,60 +10,99 @@ pub struct Permissions {
 }
 
 impl Permissions {
+    /// Creates a new Permissions instance from a slice of capabilities
     pub fn new(permissions: &[Capabilities]) -> Self {
         Self {
             inner: permissions.to_vec(),
         }
     }
 
-    pub fn get(&self, index: u16) -> Capabilities {
-        if index >= self.inner.len() as u16 {
-            return Capabilities::NONE;
-        }
-        self.inner[index as usize].clone()
+    /// Gets capability at the specified index
+    pub fn get(&self, index: u16) -> Option<Capabilities> {
+        self.inner.get(index as usize).copied()
     }
 
-    pub fn as_vec(&self) -> Vec<Capabilities> {
-        self.inner.clone()
+    /// Gets capability at the specified index, returns Capabilities::NONE if out of bounds
+    pub fn get_or_default(&self, index: u16) -> Capabilities {
+        self.inner
+            .get(index as usize)
+            .copied()
+            .unwrap_or(Capabilities::NONE)
     }
 
     pub fn as_slice(&self) -> &[Capabilities] {
-        self.inner.as_slice()
+        &self.inner
     }
 
+    pub fn as_vec(&self) -> &Vec<Capabilities> {
+        &self.inner
+    }
+
+    /// Initializes permissions from IDs and permission mappings
     pub fn init(ids: &[u16], permissions: Vec<(u16, u8)>) -> Self {
-        let mut inner = <Vec<Capabilities>>::with_capacity(ids.len());
+        let mut permission_map: HashMap<u16, Capabilities> = HashMap::new();
 
-        for _ in 0..ids.len() {
-            inner.push(Capabilities::NONE);
+        for (id, bits) in permissions {
+            permission_map
+                .entry(id)
+                .and_modify(|caps| *caps = caps.union(Capabilities::from_bits_truncate(bits)))
+                .or_insert(Capabilities::from_bits_truncate(bits));
         }
 
-        for i in 0..ids.len() {
-            permissions
-                .iter()
-                .filter(|(id, _)| id == &ids[i])
-                .for_each(|(_, bits)| {
-                    inner[i] = inner[i]
-                        .clone()
-                        .union(Capabilities::from_bits_truncate(*bits));
-                });
-        }
-
-        Self { inner }
-    }
-
-    pub fn encode_to_base64(&self) -> String {
-        STANDARD.encode(self.inner.iter().map(Flags::bits).collect::<Vec<u8>>())
-    }
-
-    pub fn decode_from_base64(encoded: impl ToString) -> Self {
-        let inner = STANDARD
-            .decode(encoded.to_string())
-            .unwrap_or_default()
-            .into_iter()
-            .map(Capabilities::from_bits_truncate)
+        let inner: Vec<Capabilities> = ids
+            .iter()
+            .map(|id| {
+                permission_map
+                    .get(id)
+                    .copied()
+                    .unwrap_or(Capabilities::NONE)
+            })
             .collect();
 
         Self { inner }
+    }
+
+    /// Encodes permissions to base64 string
+    pub fn encode_to_base64(&self) -> String {
+        let bytes: Vec<u8> = self.inner.iter().map(Flags::bits).collect();
+        STANDARD.encode(bytes)
+    }
+
+    /// Decodes permissions from base64 string
+    pub fn decode_from_base64(
+        encoded: impl AsRef<str>,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
+        let bytes = STANDARD.decode(encoded.as_ref())?;
+
+        // Validate that all bytes represent valid capabilities
+        let inner: Result<Vec<Capabilities>, _> = bytes
+            .into_iter()
+            .map(|byte| {
+                Capabilities::from_bits(byte)
+                    .ok_or_else(|| format!("Invalid capability bits: {:#04x}", byte))
+            })
+            .collect();
+
+        match inner {
+            Ok(capabilities) => Ok(Self {
+                inner: capabilities,
+            }),
+            Err(e) => Err(e.into()),
+        }
+    }
+
+    /// Decodes permissions from base64 string, returns empty on error
+    pub fn decode_from_base64_or_empty(encoded: impl AsRef<str>) -> Self {
+        Self::decode_from_base64(encoded).unwrap_or_else(|_| Self { inner: Vec::new() })
+    }
+
+    /// Returns the number of permissions
+    pub fn len(&self) -> usize {
+        self.inner.len()
+    }
+
+    /// Checks if permissions are empty
+    pub fn is_empty(&self) -> bool {
+        self.inner.is_empty()
     }
 }

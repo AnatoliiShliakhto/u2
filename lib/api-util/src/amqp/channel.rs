@@ -37,32 +37,32 @@ impl AMQPChannelOptions {
         self
     }
 
-    pub fn passive(mut self) -> Self {
-        self.passive = true;
+    fn set_flag(mut self, flag: fn(&mut Self)) -> Self {
+        flag(&mut self);
         self
     }
 
-    pub fn durable(mut self) -> Self {
-        self.durable = true;
-        self
+    pub fn with_passive(self) -> Self {
+        self.set_flag(|opts| opts.passive = true)
     }
 
-    pub fn exclusive(mut self) -> Self {
-        self.exclusive = true;
-        self
-    }
-    pub fn auto_delete(mut self) -> Self {
-        self.auto_delete = true;
-        self
+    pub fn with_durable(self) -> Self {
+        self.set_flag(|opts| opts.durable = true)
     }
 
-    pub fn internal(mut self) -> Self {
-        self.internal = true;
-        self
+    pub fn with_exclusive(self) -> Self {
+        self.set_flag(|opts| opts.exclusive = true)
     }
 
-    pub fn nowait(mut self) -> Self {
-        self.nowait = true;
-        self
+    pub fn with_auto_delete(self) -> Self {
+        self.set_flag(|opts| opts.auto_delete = true)
+    }
+
+    pub fn with_internal(self) -> Self {
+        self.set_flag(|opts| opts.internal = true)
+    }
+
+    pub fn with_nowait(self) -> Self {
+        self.set_flag(|opts| opts.nowait = true)
     }
 }

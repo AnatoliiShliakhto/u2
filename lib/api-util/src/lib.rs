@@ -5,4 +5,4 @@ mod macros;
 mod model;
 mod util;
 
-pub use self::{error::*, model::*, util::*};
+pub use self::{error::*, model::*, util::*, macros::*};

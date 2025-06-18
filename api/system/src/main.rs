@@ -2,32 +2,29 @@ mod app;
 mod repository;
 mod service;
 
-use crate::{app::AppState, service::amqp::amqp_consumer};
+use crate::{app::init_state, service::amqp::amqp_consumer};
 use ::api_util::{
     Error,
     amqp::AMQPPoolExt,
-    env,
     log::{self},
-    shutdown::pending_shutdown_signal,
+    shutdown::wait_for_shutdown,
 };
-use ::std::sync::LazyLock;
-
-pub static APP: LazyLock<AppState> = LazyLock::new(AppState::default);
+use crate::repository::migration::Migration;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<Error>> {
-    env::init();
-    APP.init().await?;
     println!(include_str!("../../../res/logo/banner.txt"));
 
-    let amqp = APP.amqp();
+    let state = init_state().await?;
 
-    log::amqp_logger(amqp).await;
+    log::amqp_logger(&state.amqp).await;
 
-    amqp.set_topic_delegate("system.svc", amqp_consumer).await?;
-    amqp.set_broadcast_delegate(amqp_consumer).await?;
+    state.db.services_init().await?;
+    
+    state.amqp.set_topic_delegate("system.svc", amqp_consumer).await?;
+    state.amqp.set_broadcast_delegate(amqp_consumer).await?;
 
-    pending_shutdown_signal().await;
+    wait_for_shutdown().await;
 
     Ok(())
 }

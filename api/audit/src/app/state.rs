@@ -1,31 +1,29 @@
 use ::api_util::{Error, amqp::AMQPPool, amqp_init, db_init, migrate::MigrateExt};
-use ::std::sync::{Arc, OnceLock};
+use ::std::sync::Arc;
 use ::surrealdb::{Surreal, engine::remote::ws::Client};
+use ::tokio::sync::OnceCell;
 
-#[derive(Default)]
+static APP: OnceCell<AppState> = OnceCell::const_new();
+
 pub struct AppState {
-    amqp: OnceLock<Arc<AMQPPool>>,
-    db: OnceLock<Arc<Surreal<Client>>>,
+    pub amqp: Arc<AMQPPool>,
+    pub db: Arc<Surreal<Client>>,
 }
 
-impl AppState {
-    pub async fn init(&self) -> Result<(), Error> {
-        let amqp = amqp_init!();
-        let db = db_init!();
+pub async fn init_state() -> Result<&'static AppState, Error> {
+    let amqp = amqp_init!();
+    let db = db_init!();
 
-        db.migrate_up().await?;
+    db.migrate_up().await?;
+    
+    let state = AppState { amqp, db };
+    
+    APP.set(state)
+        .map_err(|_| Error::Unknown("Application state already set"))?;
+    
+    Ok(APP.get().unwrap())
+}
 
-        self.amqp.get_or_init(|| amqp);
-        self.db.get_or_init(|| db);
-
-        Ok(())
-    }
-
-    pub fn amqp(&self) -> &Arc<AMQPPool> {
-        self.amqp.get().expect("AMQP pool not initialized")
-    }
-
-    pub fn db(&self) -> &Arc<Surreal<Client>> {
-        self.db.get().expect("Database not initialized")
-    }
+pub fn get_state() -> &'static AppState {
+    APP.get().expect("Application state is not set")
 }

@@ -9,80 +9,82 @@ pub struct AMQPMessageOptions {
 }
 
 impl AMQPMessageOptions {
-    pub fn with_app_id(mut self) -> Self {
+    pub fn app_id(mut self) -> Self {
         self.app_id = true;
         self
     }
 
-    pub fn with_mandatory(mut self) -> Self {
+    pub fn mandatory(mut self) -> Self {
         self.mandatory = true;
         self
     }
 
-    pub fn with_immediate(mut self) -> Self {
+    pub fn immediate(mut self) -> Self {
         self.immediate = true;
         self
     }
 
-    pub fn with_content_type(mut self, value: impl ToString) -> Self {
-        self.properties = self.properties.with_content_type(value.to_string().into());
+    fn with_string_property<F>(mut self, value: impl ToString, setter: F) -> Self
+    where
+        F: FnOnce(BasicProperties, String) -> BasicProperties,
+    {
+        self.properties = setter(self.properties, value.to_string());
         self
     }
 
-    pub fn with_headers(mut self, value: FieldTable) -> Self {
-        self.properties = self.properties.with_headers(value);
+    fn with_property<T, F>(mut self, value: T, setter: F) -> Self
+    where
+        F: FnOnce(BasicProperties, T) -> BasicProperties,
+    {
+        self.properties = setter(self.properties, value);
         self
     }
 
-    pub fn with_delivery_mode(mut self, value: u8) -> Self {
-        self.properties = self.properties.with_delivery_mode(value);
-        self
+    pub fn with_content_type(self, value: impl ToString) -> Self {
+        self.with_string_property(value, |props, val| props.with_content_type(val.into()))
     }
 
-    pub fn with_priority(mut self, value: u8) -> Self {
-        self.properties = self.properties.with_priority(value);
-        self
+    pub fn with_headers(self, value: FieldTable) -> Self {
+        self.with_property(value, |props, val| props.with_headers(val))
     }
 
-    pub fn with_correlation_id(mut self, value: impl ToString) -> Self {
-        self.properties = self
-            .properties
-            .with_correlation_id(value.to_string().into());
-        self
+    pub fn with_delivery_mode(self, value: u8) -> Self {
+        self.with_property(value, |props, val| props.with_delivery_mode(val))
     }
 
-    pub fn with_reply_to(mut self, value: impl ToString) -> Self {
-        self.properties = self.properties.with_reply_to(value.to_string().into());
-        self
+    pub fn with_priority(self, value: u8) -> Self {
+        self.with_property(value, |props, val| props.with_priority(val))
     }
 
-    pub fn with_expiration(mut self, value: impl ToString) -> Self {
-        self.properties = self.properties.with_expiration(value.to_string().into());
-        self
+    pub fn with_correlation_id(self, value: impl ToString) -> Self {
+        self.with_string_property(value, |props, val| props.with_correlation_id(val.into()))
     }
 
-    pub fn with_message_id(mut self, value: impl ToString) -> Self {
-        self.properties = self.properties.with_message_id(value.to_string().into());
-        self
+    pub fn with_reply_to(self, value: impl ToString) -> Self {
+        self.with_string_property(value, |props, val| props.with_reply_to(val.into()))
     }
 
-    pub fn with_timestamp(mut self, value: u64) -> Self {
-        self.properties = self.properties.with_timestamp(value);
-        self
+    pub fn with_expiration(self, value: impl ToString) -> Self {
+        self.with_string_property(value, |props, val| props.with_expiration(val.into()))
     }
 
-    pub fn with_type(mut self, value: impl ToString) -> Self {
-        self.properties = self.properties.with_type(value.to_string().into());
-        self
+    pub fn with_message_id(self, value: impl ToString) -> Self {
+        self.with_string_property(value, |props, val| props.with_message_id(val.into()))
     }
 
-    pub fn with_user_id(mut self, value: impl ToString) -> Self {
-        self.properties = self.properties.with_user_id(value.to_string().into());
-        self
+    pub fn with_timestamp(self, value: u64) -> Self {
+        self.with_property(value, |props, val| props.with_timestamp(val))
     }
 
-    pub fn with_cluster_id(mut self, value: impl ToString) -> Self {
-        self.properties = self.properties.with_cluster_id(value.to_string().into());
-        self
+    pub fn with_type(self, value: impl ToString) -> Self {
+        self.with_string_property(value, |props, val| props.with_type(val.into()))
+    }
+
+    pub fn with_user_id(self, value: impl ToString) -> Self {
+        self.with_string_property(value, |props, val| props.with_user_id(val.into()))
+    }
+
+    pub fn with_cluster_id(self, value: impl ToString) -> Self {
+        self.with_string_property(value, |props, val| props.with_cluster_id(val.into()))
     }
 }

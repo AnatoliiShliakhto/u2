@@ -16,10 +16,8 @@ pub struct LoggerWriter {
 }
 
 impl LoggerWriter {
-    pub fn init(pool: &Arc<AMQPPool>) -> Self {
-        Self {
-            amqp: pool.clone(),
-        }
+    pub fn new(pool: &Arc<AMQPPool>) -> Self {
+        Self { amqp: pool.clone() }
     }
 }
 
@@ -27,21 +25,19 @@ impl io::Write for LoggerWriter {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         let pool = self.amqp.clone();
         let buf_owned = buf.to_vec();
-
         tokio::spawn(async move {
             if let Err(err) = pool
                 .send(
                     ExchangeKind::Topic,
                     "log.write",
-                    AMQPMessageOptions::default().with_app_id(),
+                    AMQPMessageOptions::default().app_id(),
                     &buf_owned,
                 )
                 .await
             {
-                eprintln!("'logger.write' sending AMQP message: {}", err);
+                eprintln!("'log.write' sending AMQP message: {}", err);
             };
         });
-
         Ok(buf.len())
     }
 
@@ -55,12 +51,19 @@ impl io::Write for LoggerWriter {
     }
 }
 
-pub fn stdout_logger() {
-    let env_filter = EnvFilter::builder()
+fn create_env_filter() -> EnvFilter {
+    EnvFilter::builder()
         .with_default_directive(LevelFilter::INFO.into())
-        .from_env_lossy();
+        .from_env_lossy()
+}
 
-    let stdout_layer = layer().compact();
+fn create_stdout_layer() -> impl tracing_subscriber::Layer<tracing_subscriber::Registry> {
+    layer().compact()
+}
+
+pub fn stdout_logger() {
+    let env_filter = create_env_filter();
+    let stdout_layer = create_stdout_layer();
 
     tracing_subscriber::registry()
         .with(stdout_layer)
@@ -69,15 +72,12 @@ pub fn stdout_logger() {
 }
 
 pub async fn amqp_logger(pool: &Arc<AMQPPool>) {
-    let env_filter = EnvFilter::builder()
-        .with_default_directive(LevelFilter::INFO.into())
-        .from_env_lossy();
-
-    let stdout_layer = layer().compact();
+    let env_filter = create_env_filter();
+    let stdout_layer = create_stdout_layer();
     let amqp_layer = layer()
         .compact()
         .with_ansi(false)
-        .with_writer(Mutex::new(LoggerWriter::init(pool)));
+        .with_writer(Mutex::new(LoggerWriter::new(pool)));
 
     tracing_subscriber::registry()
         .with(stdout_layer)
@@ -87,10 +87,7 @@ pub async fn amqp_logger(pool: &Arc<AMQPPool>) {
 }
 
 pub fn file_logger(path: &str, filename: &str) -> WorkerGuard {
-    let env_filter = EnvFilter::builder()
-        .with_default_directive(LevelFilter::INFO.into())
-        .from_env_lossy();
-
+    let env_filter = create_env_filter();
     let file_appender = RollingFileAppender::builder()
         .rotation(Rotation::DAILY)
         .filename_prefix(filename)
@@ -99,8 +96,7 @@ pub fn file_logger(path: &str, filename: &str) -> WorkerGuard {
         .build(path)
         .expect("failed to initialize rolling file appender");
     let (non_blocking, guard) = tracing_appender::non_blocking(file_appender);
-
-    let stdout_layer = layer().compact();
+    let stdout_layer = create_stdout_layer();
     let file_layer = layer().compact().with_ansi(false).with_writer(non_blocking);
 
     tracing_subscriber::registry()
@@ -108,6 +104,5 @@ pub fn file_logger(path: &str, filename: &str) -> WorkerGuard {
         .with(file_layer)
         .with(env_filter)
         .init();
-
     guard
 }

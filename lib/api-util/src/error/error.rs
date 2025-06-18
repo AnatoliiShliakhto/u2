@@ -6,9 +6,10 @@ use ::axum::{
 };
 use ::serde::Serialize;
 use ::serde_json::{Value, json};
+use ::tracing::error;
 
-#[derive(Debug, thiserror::Error)]
 #[allow(clippy::enum_variant_names)]
+#[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error[transparent]]
     IoError(#[from] std::io::Error),
@@ -44,10 +45,13 @@ impl IntoResponse for Error {
             _ => (StatusCode::INTERNAL_SERVER_ERROR, "Something went wrong".to_string(), Value::Null),
         };
         
+        error!("{message}");
+        
         let body = json!({
             "message": message,
             "details": details,
         });
+        
         (code, Json(body)).into_response()
     }
 }

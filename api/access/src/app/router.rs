@@ -1,4 +1,4 @@
-use crate::APP;
+use crate::app::get_state;
 use ::api_util::{Error, handler, prometheus};
 use ::axum::{Router, middleware::from_fn, routing::get};
 use ::axum_proxy::TrimPrefix;
@@ -24,12 +24,12 @@ pub fn init_app() -> Router {
 }
 
 async fn test() -> Result<impl IntoResponse, Error> {
-    APP.amqp()
+    get_state().amqp
         .send(
             ExchangeKind::Topic,
             "",
             AMQPMessageOptions::default()
-                .with_app_id()
+                .app_id()
                 .with_message_id("hello"),
             b"BROADCAST TEST",
         )
@@ -39,7 +39,7 @@ async fn test() -> Result<impl IntoResponse, Error> {
 }
 
 async fn test1() -> Result<impl IntoResponse, Error> {
-    APP.amqp()
+    get_state().amqp
         .send(
             ExchangeKind::Topic,
             "access.svc",
@@ -51,7 +51,7 @@ async fn test1() -> Result<impl IntoResponse, Error> {
 }
 
 async fn test2() -> Result<impl IntoResponse, Error> {
-    APP.amqp()
+    get_state().amqp
         .send(
             ExchangeKind::Topic,
             "auth.svc",

@@ -3,25 +3,19 @@ mod repository;
 mod service;
 
 use crate::{
-    app::{AppState, init_app},
+    app::{init_app, init_state},
     service::amqp::amqp_consumer,
 };
-use ::api_util::{Error, amqp::AMQPPoolExt, env, log, server};
-use ::std::sync::LazyLock;
-
-pub static APP: LazyLock<AppState> = LazyLock::new(AppState::default);
+use ::api_util::{Error, amqp::AMQPPoolExt, log, server};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<Error>> {
-    env::init();
-    APP.init().await?;
+    let state = &init_state().await?;
 
-    let amqp = APP.amqp();
+    log::amqp_logger(&state.amqp).await;
 
-    log::amqp_logger(amqp).await;
-
-    amqp.set_topic_delegate("auth.svc", amqp_consumer).await?;
-    amqp.set_broadcast_delegate(amqp_consumer).await?;
+    state.amqp.set_topic_delegate("auth.svc", amqp_consumer).await?;
+    state.amqp.set_broadcast_delegate(amqp_consumer).await?;
 
     server::start_server(init_app()).await;
 

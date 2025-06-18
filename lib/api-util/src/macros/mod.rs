@@ -1,2 +1,2 @@
-mod database;
+pub mod database;
 mod amqp;

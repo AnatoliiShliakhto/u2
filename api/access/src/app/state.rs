@@ -1,19 +1,24 @@
 use ::api_util::{Error, amqp::AMQPPool, amqp_init};
-use ::std::sync::{Arc, OnceLock};
+use ::std::sync::Arc;
+use ::tokio::sync::OnceCell;
 
-#[derive(Default)]
+static APP: OnceCell<AppState> = OnceCell::const_new();
+
 pub struct AppState {
-    amqp: OnceLock<Arc<AMQPPool>>,
+    pub amqp: Arc<AMQPPool>,
 }
 
-impl AppState {
-    pub async fn init(&self) -> Result<(), Error> {
-        let amqp = amqp_init!();
-        self.amqp.get_or_init(|| amqp);
-        Ok(())
-    }
+pub async fn init_state() -> Result<&'static AppState, Error> {
+    let state = AppState {
+        amqp: amqp_init!(),
+    };
+    
+    APP.set(state)
+        .map_err(|_| Error::Unknown("Application state already set"))?;
 
-    pub fn amqp(&self) -> &Arc<AMQPPool> {
-        self.amqp.get().expect("AMQP pool not initialized")
-    }
+    Ok(APP.get().unwrap())
+}
+
+pub fn get_state() -> &'static AppState {
+    APP.get().expect("Application state is not set")
 }

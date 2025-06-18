@@ -12,6 +12,6 @@ license.workspace = true
 [dependencies]
 api-util = { path = "../../lib/api-util" }
 
-tokio = { version = "1.45.0", features = ["full"] }
+tokio = { version = "1.45.1", features = ["full"] }
 axum = { version = "0.8.4", features = ["multipart", "macros", "tokio"] }
-axum-proxy = { version = "0.5.0", features = ["axum"] }
+axum-proxy = { version = "0.5.1", features = ["axum"] }
