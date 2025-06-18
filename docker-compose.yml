@@ -75,7 +75,7 @@ x-health-grafana: &health-grafana
 
 x-health-service: &health-service
   <<: *health-default
-  test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8080/healthcheck || exit 1"]
+  test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider 0.0.0.0/healthcheck || exit 1"]
 
 # Common service configurations
 x-alpine-service-base: &alpine-service-base
@@ -193,7 +193,7 @@ services:
     user: "1000:1000"
     restart: unless-stopped
     depends_on:
-      access-svc: { condition: service_started }
+      access-svc: { condition: service_healthy }
     networks: [intranet]
     ports: ["443:443"]
     volumes:
@@ -231,7 +231,6 @@ services:
       LOGS_DIR: /logs
     depends_on:
       rabbitmq: { condition: service_healthy }
-    healthcheck: *health-service
 
   system-svc:
     <<: *alpine-service-base
@@ -246,7 +245,6 @@ services:
     depends_on:
       rabbitmq: { condition: service_healthy }
       surrealdb: { condition: service_healthy }
-    healthcheck: *health-service
 
   access-svc:
     <<: *microservice-config
