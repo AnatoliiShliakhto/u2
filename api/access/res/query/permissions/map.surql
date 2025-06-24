@@ -1,0 +1,1 @@
+SELECT VALUE id.id() as id FROM permissions ORDER BY id

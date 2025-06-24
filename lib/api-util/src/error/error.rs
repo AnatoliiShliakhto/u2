@@ -12,6 +12,8 @@ use ::tracing::error;
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error[transparent]]
+    AuthError(#[from] super::AuthError),
+    #[error[transparent]]
     IoError(#[from] std::io::Error),
     #[error[transparent]]
     HttpError(#[from] axum::http::Error),
@@ -36,7 +38,10 @@ pub struct ErrorBody {
 
 impl IntoResponse for Error {
     fn into_response(self) -> Response {
+        error!("{self:?}");
+        
         let (code, message, details) = match self {
+            Self::AuthError(err) => err.parts(),
             Self::JsonRejection(err) => (
                 StatusCode::BAD_REQUEST,
                 err.to_string(),
@@ -44,8 +49,6 @@ impl IntoResponse for Error {
             ),
             _ => (StatusCode::INTERNAL_SERVER_ERROR, "Something went wrong".to_string(), Value::Null),
         };
-        
-        error!("{message}");
         
         let body = json!({
             "message": message,

@@ -28,15 +28,6 @@ script = '''
 docker volume prune --filter all=1
 '''
 
-# Caddy reverse proxy
-
-[tasks.compose-proxy]
-script_runner = "@shell"
-script = '''
-docker compose down proxy-srv
-docker compose up -d --no-deps --force-recreate --build proxy-srv
-'''
-
 # Grafana
 
 [tasks.compose-grafana]
@@ -64,6 +55,26 @@ docker compose down rabbitmq
 docker compose up -d --no-deps --force-recreate --build rabbitmq
 '''
 
+# Proxy server
+
+[tasks.build-proxy]
+script_runner = "@shell"
+script = '''
+cross build --release --package proxy --target x86_64-unknown-linux-musl
+rm -f ./bin/proxy
+cp ./target/x86_64-unknown-linux-musl/release/proxy ./bin/proxy
+'''
+
+[tasks.compose-proxy]
+script_runner = "@shell"
+script = '''
+docker compose down proxy-svc
+docker compose up -d --no-deps --force-recreate --build proxy-svc
+'''
+
+[tasks.proxy]
+dependencies = ["build-proxy", "compose-proxy"]
+
 # Access server
 
 [tasks.build-access]
@@ -71,7 +82,9 @@ script_runner = "@shell"
 script = '''
 cross build --release --package access --target x86_64-unknown-linux-musl
 rm -f ./bin/access
+rm -rf ./cfg/access
 cp ./target/x86_64-unknown-linux-musl/release/access ./bin/access
+cp -rf ./api/access/res/assets/* ./cfg/access/*
 '''
 
 [tasks.compose-access]
@@ -83,28 +96,6 @@ docker compose up -d --no-deps --force-recreate --build access-svc
 
 [tasks.access]
 dependencies = ["build-access", "compose-access"]
-
-# Authorization service
-
-[tasks.build-auth]
-script_runner = "@shell"
-script = '''
-cross build --release --package auth --target x86_64-unknown-linux-musl
-rm -f ./bin/auth
-rm -rf ./cfg/auth
-cp ./target/x86_64-unknown-linux-musl/release/auth ./bin/auth
-cp -rf ./api/auth/res/assets/* ./cfg/auth/*
-'''
-
-[tasks.compose-auth]
-script_runner = "@shell"
-script = '''
-docker compose down auth-svc
-docker compose up -d --no-deps --force-recreate --build auth-svc
-'''
-
-[tasks.auth]
-dependencies = ["build-auth", "compose-auth"]
 
 # Logger service
 
@@ -171,10 +162,10 @@ dependencies = ["build-audit", "compose-audit"]
 # Batch tasks
 
 [tasks.build-api]
-dependencies = ["build-logger", "build-system", "build-access", "build-auth", "build-audit"]
+dependencies = ["build-logger", "build-system", "build-access", "build-audit", "buid-proxy"]
 
 [tasks.compose-api]
-dependencies = ["compose-logger", "compose-system", "compose-auth", "compose-access", "compose-audit"]
+dependencies = ["compose-logger", "compose-system", "compose-access", "compose-audit", "compose-proxy"]
 
 [tasks.install-dioxus]
 install_crate = "dioxus-cli"

@@ -1,11 +1,17 @@
-use crate::amqp::BasicAckOptions;
-use ::deadpool_lapin::lapin::message::Delivery;
+use ::deadpool_lapin::lapin::{message::Delivery, options::BasicAckOptions};
+use ::serde::de::DeserializeOwned;
+use ::serde_json::Error;
+use ::std::borrow::Cow;
 use ::tracing::error;
 
 pub trait DeliveryExt {
     fn app_id(&self) -> String;
     fn message_id(&self) -> String;
-    fn ack_async(self);
+    fn reply_to(&self) -> String;
+    fn confirm(self);
+    fn extract_string(&self) -> String;
+    fn extract_str(&self) -> Cow<str>;
+    fn extract_json<T: DeserializeOwned>(&self) -> Result<T, Error>;
 }
 
 impl DeliveryExt for Delivery {
@@ -25,10 +31,30 @@ impl DeliveryExt for Delivery {
             .to_string()
     }
 
-    fn ack_async(self) {
+    fn reply_to(&self) -> String {
+        self.properties
+            .reply_to()
+            .clone()
+            .unwrap_or_default()
+            .to_string()
+    }
+
+    fn confirm(self) {
         tokio::spawn(async move {
             handle_delivery_ack(self).await;
         });
+    }
+
+    fn extract_string(&self) -> String {
+        String::from_utf8_lossy(&self.data).to_string()
+    }
+
+    fn extract_str(&self) -> Cow<str> {
+        String::from_utf8_lossy(&self.data)
+    }
+
+    fn extract_json<T: DeserializeOwned>(&self) -> Result<T, Error> {
+        serde_json::from_slice(&self.data)
     }
 }
 

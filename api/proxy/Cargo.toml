@@ -1,0 +1,20 @@
+[package]
+name = "proxy"
+version = "0.0.1"
+description = "reverse proxy service"
+edition.workspace = true
+keywords.workspace = true
+authors.workspace = true
+repository.workspace = true
+readme.workspace = true
+license.workspace = true
+
+[dependencies]
+api-util = { path = "../../lib/api-util" }
+
+tokio = { version = "1.45.1", features = ["full"] }
+axum = { version = "0.8.4", features = ["multipart", "macros", "tokio"] }
+axum-server = { version = "0.7.2", features = ["tokio-rustls", "rustls-pemfile", "tls-rustls-no-provider"] }
+axum-reverse-proxy = { version = "1.0.2" }
+tower = { version = "0.5.2" }
+tower-http = { version = "0.6.6", features = ["cors", "compression-full", "set-header"] }

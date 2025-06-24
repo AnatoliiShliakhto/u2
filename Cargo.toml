@@ -3,10 +3,10 @@ resolver = "3"
 members = [
     "lib/api-util",
     "api/access",
-    "api/auth",
     "api/logger",
     "api/system",
-    "api/audit"
+    "api/audit",
+    "api/proxy"
 ]
 default-members = ["api/access"]
 
@@ -27,7 +27,7 @@ opt-level = 2
 lto = true
 strip = true
 opt-level = 3
-panic = 'abort'
+panic = "unwind"
 codegen-units = 1
 
 [profile.wasm-dev]

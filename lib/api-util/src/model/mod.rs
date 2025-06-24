@@ -1,2 +1,1 @@
-pub mod capabilities;
-pub mod permissions;
+pub mod metadata;

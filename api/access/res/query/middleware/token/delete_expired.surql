@@ -1,0 +1,1 @@
+DELETE refresh_tokens WHERE expiration_at < time::unix();

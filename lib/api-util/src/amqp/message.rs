@@ -2,18 +2,12 @@ use super::{BasicProperties, FieldTable};
 
 #[derive(Default)]
 pub struct AMQPMessageOptions {
-    pub(crate) app_id: bool,
     pub(crate) mandatory: bool,
     pub(crate) immediate: bool,
     pub(crate) properties: BasicProperties,
 }
 
 impl AMQPMessageOptions {
-    pub fn app_id(mut self) -> Self {
-        self.app_id = true;
-        self
-    }
-
     pub fn mandatory(mut self) -> Self {
         self.mandatory = true;
         self
@@ -38,6 +32,10 @@ impl AMQPMessageOptions {
     {
         self.properties = setter(self.properties, value);
         self
+    }
+
+    pub fn with_app_id(self, value: impl ToString) -> Self {
+        self.with_string_property(value, |props, val| props.with_app_id(val.into()))
     }
 
     pub fn with_content_type(self, value: impl ToString) -> Self {

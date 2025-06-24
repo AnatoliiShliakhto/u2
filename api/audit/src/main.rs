@@ -1,22 +1,28 @@
+mod amqp;
 mod app;
-mod service;
 
 use crate::{
+    amqp::init_amqp,
     app::{init_app, init_state},
-    service::amqp::amqp_consumer,
 };
-use ::api_util::{Error, amqp::AMQPPoolExt, log, server};
+use ::api_util::{Error, console::*, log, panic::*, server, shutdown::*};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<Error>> {
-    let state = &init_state().await?;
+    print_banner();
 
-    log::amqp_logger(&state.amqp).await;
+    let shutdown_handle = create_shutdown_handle().await;
+    set_panic_hook(Some(shutdown_handle.clone()));
 
-    state.amqp.set_topic_delegate("audit.svc", amqp_consumer).await?;
-    //    amqp.set_broadcast_delegate(amqp_consumer).await?;
+    let state = init_state().await?;
+    log::amqp_logger(state.cfg.name, &state.amqp).await;
 
-    server::start_server(init_app()).await;
+    print_service_started(state.cfg.name, state.cfg.version);
 
+    init_amqp().await?;
+
+    server::start_server(init_app(), shutdown_handle).await;
+
+    print_service_stopped();
     Ok(())
 }

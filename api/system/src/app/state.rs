@@ -1,5 +1,5 @@
 use crate::repository::migration::Migration;
-use ::api_util::{Error, amqp::AMQPPool, amqp_init, env, migrate::MigrateExt};
+use ::api_util::{Error, amqp::AMQPPool, amqp_init, env};
 use ::std::sync::Arc;
 use ::surrealdb::{
     Surreal,

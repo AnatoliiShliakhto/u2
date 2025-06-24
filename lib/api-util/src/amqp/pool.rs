@@ -9,16 +9,15 @@ pub use deadpool_lapin::lapin::{
     BasicProperties, ConsumerDelegate, ExchangeKind, message::*, options::*, types::*,
 };
 
-const DEFAULT_CONSUMER_TAG_SUFFIX: &str = ".consumer";
+const DEFAULT_CONSUMER_TAG_SUFFIX: &str = "consumer";
 
 pub struct AMQPPool {
-    name: ShortString,
     pool: Pool,
     channel: Channel,
 }
 
 impl AMQPPool {
-    pub async fn new(name: impl ToString, url: impl ToString) -> Result<Self, Error> {
+    pub async fn new(url: impl ToString) -> Result<Self, Error> {
         let config = Config {
             url: Some(url.to_string()),
             ..Default::default()
@@ -27,41 +26,34 @@ impl AMQPPool {
             .create_pool(Some(Runtime::Tokio1))
             .map_err(map_amqp_err)?;
         let channel = create_channel(&pool).await?;
-        Ok(Self {
-            name: name.to_string().into(),
-            pool,
-            channel,
-        })
+        Ok(Self { pool, channel })
     }
 
     pub async fn set_delegate<D: ConsumerDelegate + Clone + 'static>(
         &self,
+        queue: &str,
         options: AMQPChannelOptions,
         delegate: D,
     ) -> Result<(), Error> {
         let channel = self.init_exchange_channel(&options).await?;
-        self.bind_channel_queue(&channel, &options).await?;
-        self.setup_consumer(&channel, &options, delegate).await?;
+        self.bind_channel_queue(&channel, queue, &options).await?;
+        self.setup_consumer(&channel, queue, &options, delegate)
+            .await?;
         Ok(())
     }
 
     async fn setup_consumer<D: ConsumerDelegate + Clone + 'static>(
         &self,
         channel: &Channel,
+        name: &str,
         options: &AMQPChannelOptions,
         delegate: D,
     ) -> Result<(), Error> {
-        let queue_name = self.name.as_str();
-        let consumer_tag = format!("{queue_name}{DEFAULT_CONSUMER_TAG_SUFFIX}");
+        let consumer_tag = format!("{name}.{DEFAULT_CONSUMER_TAG_SUFFIX}");
         let consume_options = self.create_consume_options(options);
 
         channel
-            .basic_consume(
-                queue_name,
-                &consumer_tag,
-                consume_options,
-                FieldTable::default(),
-            )
+            .basic_consume(name, &consumer_tag, consume_options, FieldTable::default())
             .await
             .map_err(map_amqp_err)?
             .set_delegate(delegate.clone());
@@ -110,13 +102,13 @@ impl AMQPPool {
     async fn bind_channel_queue(
         &self,
         channel: &Channel,
+        name: &str,
         options: &AMQPChannelOptions,
     ) -> Result<Queue, Error> {
-        let queue_name = self.name.as_str();
         let declare_options = self.create_queue_declare_options(options);
 
         let queue = channel
-            .queue_declare(queue_name, declare_options, FieldTable::default())
+            .queue_declare(name, declare_options, FieldTable::default())
             .await
             .map_err(map_amqp_err)?;
 
@@ -126,7 +118,7 @@ impl AMQPPool {
 
         channel
             .queue_bind(
-                queue_name,
+                name,
                 exchange_kind_to_str(&options.exchange),
                 &options.routing_key,
                 bind_options,
@@ -154,12 +146,6 @@ impl AMQPPool {
         options: AMQPMessageOptions,
         payload: &[u8],
     ) -> Result<(), Error> {
-        let properties = if options.app_id {
-            options.properties.with_app_id(self.name.clone())
-        } else {
-            options.properties
-        };
-
         let publish_options = BasicPublishOptions {
             mandatory: options.mandatory,
             immediate: options.immediate,
@@ -171,7 +157,7 @@ impl AMQPPool {
                 routing_key,
                 publish_options,
                 payload,
-                properties,
+                options.properties,
             )
             .await
             .map_err(map_amqp_err)?;

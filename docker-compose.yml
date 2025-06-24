@@ -2,7 +2,7 @@
 x-env-services: &env-services
   SERVICES_DB_CFG: >
     [
-      { "database": "${AUTH_DB_NAME:-core}", "user": "${AUTH_DB_USER:-root}", "password": "${AUTH_DB_PASS:-root}" },
+      { "database": "${ACCESS_DB_NAME:-core}", "user": "${ACCESS_DB_USER:-root}", "password": "${ACCESS_DB_PASS:-root}" },
       { "database": "${AUDIT_DB_NAME:-core}", "user": "${AUDIT_DB_USER:-root}", "password": "${AUDIT_DB_PASS:-root}" }
     ]
 
@@ -15,10 +15,10 @@ x-env-database-root: &env-database-root
   DB_USER: ${DB_ROOT_USER:-root}
   DB_PASS: ${DB_ROOT_PASS:-root}
 
-x-env-database-auth: &env-database-auth
-  DB_DATABASE: ${AUTH_DB_NAME:-core}
-  DB_USER: ${AUTH_DB_USER:-root}
-  DB_PASS: ${AUTH_DB_PASS:-root}
+x-env-database-access: &env-database-access
+  DB_DATABASE: ${ACCESS_DB_NAME:-core}
+  DB_USER: ${ACCESS_DB_USER:-root}
+  DB_PASS: ${ACCESS_DB_PASS:-root}
 
 x-env-database-audit: &env-database-audit
   DB_DATABASE: ${AUDIT_DB_NAME:-core}
@@ -30,18 +30,13 @@ x-env-surreal: &env-surreal
   SURREAL_PASS: ${DB_ROOT_PASS:-root}
   SURREAL_PATH: rocksdb:/data
 
+# Services environment anchors
+
 x-env-rabbitmq: &env-rabbitmq
   RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-root}
   RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-root}
   RABBITMQ_VHOST: ${RABBITMQ_VHOST:-/}
   RABBITMQ_NODENAME: ${RABBITMQ_NODENAME:-rabbitmq}
-
-x-env-amqp: &env-amqp
-  AMQP_URL: amqp://${RABBITMQ_USER:-root}:${RABBITMQ_PASS:-root}@rabbitmq:5672/%2f
-
-x-env-service-base: &env-service-base
-  <<: [*env-amqp, *env-database-defaults]
-  DATA_PATH: ${DATA_PATH:-/etc/u2}
 
 x-env-grafana: &env-grafana
   GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-root}
@@ -49,6 +44,23 @@ x-env-grafana: &env-grafana
   GF_PATHS_PROVISIONING: /etc/grafana/provisioning
   GF_PLUGINS_PREINSTALL: grafana-surrealdb-datasource
   GF_DOMAIN: ${DOMAIN:-localhost}
+
+x-env-amqp: &env-amqp
+  AMQP_URL: amqp://${RABBITMQ_USER:-root}:${RABBITMQ_PASS:-root}@rabbitmq:5672/%2f
+
+x-env-service-base: &env-service-base
+  <<: [*env-amqp, *env-database-defaults]
+  HOST_NAME: $(hostname)
+  DATA_PATH: ${DATA_PATH:-/etc/u2}
+
+x-env-access: &env-access
+  JWT_SECRET: ${JWT_SECRET:-secret}
+  JWT_ISSUER: ${JWT_ISSUER:-}
+  JWT_SUBJECT: ${JWT_SUBJECT:-}
+  JWT_ACCESS_EXPIRATION: ${JWT_ACCESS_EXPIRATION:-600}
+  JWT_REFRESH_EXPIRATION: ${JWT_REFRESH_EXPIRATION:-1296000}
+  JWT_DELETE_INTERVAL: ${JWT_DELETE_INTERVAL:-1800}
+  JWT_SET_COOKIE: ${JWT_SET_COOKIE:-SameSite=Strict; HttpOnly; Secure;}
 
 # Health check configurations
 x-health-default: &health-default
@@ -186,21 +198,6 @@ services:
     security_opt: ["no-new-privileges:true"]
     healthcheck: *health-grafana
 
-  # Proxy and Remote Desktop
-  proxy-srv:
-    container_name: proxy-srv
-    image: caddy:latest
-    user: "1000:1000"
-    restart: unless-stopped
-    depends_on:
-      access-svc: { condition: service_healthy }
-    networks: [intranet]
-    ports: ["443:443"]
-    volumes:
-      - ./cfg/certificates:/etc/ssl/private:ro
-      - ./cfg/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
-    security_opt: ["no-new-privileges:true"]
-
   rdesktop:
     container_name: rdesktop
     image: lscr.io/linuxserver/rdesktop:ubuntu-xfce
@@ -218,6 +215,21 @@ services:
     security_opt: ["no-new-privileges:true"]
 
   # Microservices
+  proxy-svc:
+    <<: *alpine-service-base
+    container_name: proxy-svc
+    hostname: proxy
+    ports: ["443:443"]
+    volumes: ["./bin/proxy:/proxy:ro", "./cfg/certificates:/etc/ssl/private:ro"]
+    entrypoint: ["/proxy"]
+    environment:
+      <<: *env-amqp
+      SSL_CRT: /etc/ssl/private/cert.pem
+      SSL_KEY: /etc/ssl/private/key.pem
+      ACCESS_URL: http://access:80
+    depends_on:
+      access-svc: { condition: service_started }
+
   logger-svc:
     <<: *alpine-service-base
     container_name: logger-svc
@@ -251,20 +263,10 @@ services:
     container_name: access-svc
     hostname: access
     user: "1000:1000"
-    volumes: ["./bin/access:/access:ro"]
-    entrypoint: ["/access"]
-
-  auth-svc:
-    <<: *microservice-config
-    container_name: auth-svc
-    hostname: auth
-    user: "1000:1000"
     environment:
-      <<: *env-database-auth
-    volumes:
-      - ./bin/auth:/auth:ro
-      - ./cfg/auth:/etc/u2:ro
-    entrypoint: ["/auth"]
+      <<: [*env-database-access, *env-access]
+    volumes: ["./bin/access:/access:ro", "./cfg/access:/etc/u2:ro"]
+    entrypoint: ["/access"]
 
   audit-svc:
     <<: *microservice-config
@@ -273,7 +275,5 @@ services:
     user: "1000:1000"
     environment:
       <<: *env-database-audit
-    volumes:
-      - ./bin/audit:/audit:ro
-      - ./cfg/audit:/etc/u2:ro
+    volumes: ["./bin/audit:/audit:ro", "./cfg/audit:/etc/u2:ro"]
     entrypoint: ["/audit"]

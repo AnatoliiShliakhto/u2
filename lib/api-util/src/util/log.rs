@@ -12,17 +12,22 @@ pub use ::tracing::{debug, error, info, trace, warn};
 pub use ::tracing_appender::rolling as rolling_appender;
 
 pub struct LoggerWriter {
+    app: &'static str,
     amqp: Arc<AMQPPool>,
 }
 
 impl LoggerWriter {
-    pub fn new(pool: &Arc<AMQPPool>) -> Self {
-        Self { amqp: pool.clone() }
+    pub fn new(app: &'static str, pool: &Arc<AMQPPool>) -> Self {
+        Self {
+            app,
+            amqp: pool.clone(),
+        }
     }
 }
 
 impl io::Write for LoggerWriter {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        let app = self.app;
         let pool = self.amqp.clone();
         let buf_owned = buf.to_vec();
         tokio::spawn(async move {
@@ -30,7 +35,7 @@ impl io::Write for LoggerWriter {
                 .send(
                     ExchangeKind::Topic,
                     "log.write",
-                    AMQPMessageOptions::default().app_id(),
+                    AMQPMessageOptions::default().with_app_id(app),
                     &buf_owned,
                 )
                 .await
@@ -71,13 +76,13 @@ pub fn stdout_logger() {
         .init();
 }
 
-pub async fn amqp_logger(pool: &Arc<AMQPPool>) {
+pub async fn amqp_logger(app: &'static str, pool: &Arc<AMQPPool>) {
     let env_filter = create_env_filter();
     let stdout_layer = create_stdout_layer();
     let amqp_layer = layer()
         .compact()
         .with_ansi(false)
-        .with_writer(Mutex::new(LoggerWriter::new(pool)));
+        .with_writer(Mutex::new(LoggerWriter::new(app, pool)));
 
     tracing_subscriber::registry()
         .with(stdout_layer)

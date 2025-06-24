@@ -8,7 +8,6 @@
 /Cargo.lock
 /.env
 /cfg/
-!/cfg/caddy/**
 !/cfg/grafana/**
 !/cfg/prometheus/**
 !/cfg/certificates/.gitkeep

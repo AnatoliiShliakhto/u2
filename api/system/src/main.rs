@@ -1,30 +1,26 @@
+mod amqp;
 mod app;
 mod repository;
-mod service;
 
-use crate::{app::init_state, service::amqp::amqp_consumer};
-use ::api_util::{
-    Error,
-    amqp::AMQPPoolExt,
-    log::{self},
-    shutdown::wait_for_shutdown,
-};
-use crate::repository::migration::Migration;
+use crate::{amqp::init_amqp, app::init_state, repository::migration::Migration};
+use ::api_util::{Error, console::*, log, panic::*, shutdown::*};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<Error>> {
-    println!(include_str!("../../../res/logo/banner.txt"));
+    print_banner();
+    set_panic_hook(None);
 
     let state = init_state().await?;
+    log::amqp_logger(env!("CARGO_PKG_NAME"), &state.amqp).await;
 
-    log::amqp_logger(&state.amqp).await;
+    print_service_started(env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
 
     state.db.services_init().await?;
-    
-    state.amqp.set_topic_delegate("system.svc", amqp_consumer).await?;
-    state.amqp.set_broadcast_delegate(amqp_consumer).await?;
 
-    wait_for_shutdown().await;
+    init_amqp().await?;
 
+    wait_for_shutdown_signals().await;
+
+    print_service_stopped();
     Ok(())
 }

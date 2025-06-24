@@ -1,14 +1,11 @@
-use crate::{env, prometheus, shutdown};
+use crate::{env, prometheus};
 use ::axum::Router;
+use ::axum_server::Handle;
 use ::std::net::{IpAddr, Ipv4Addr, SocketAddr};
-use ::tracing::{error, info};
+use ::tracing::error;
 
 const DEFAULT_SERVER_HOST: &str = "0.0.0.0";
 const DEFAULT_SERVER_PORT: &str = "80";
-
-fn print_startup_banner() {
-    println!(include_str!("../../../../res/logo/banner.txt"));
-}
 
 fn get_server_address() -> SocketAddr {
     let host = env::get_var_or_default("SERVER_HOST", DEFAULT_SERVER_HOST);
@@ -22,12 +19,7 @@ fn get_server_address() -> SocketAddr {
     SocketAddr::new(ip, port_num)
 }
 
-pub async fn start_server(router: Router) {
-    print_startup_banner();
-    info!("service started");
-    info!("waiting for shutdown signal...");
-
-    let shutdown_handle = shutdown::create_shutdown_handle().await;
+pub async fn start_server(router: Router, shutdown_handle: Handle) {
     let server_address = get_server_address();
 
     tokio::spawn(prometheus::start_metrics_server(Some(
@@ -42,6 +34,4 @@ pub async fn start_server(router: Router) {
         error!("failed to start HTTP server: {}", err);
         panic!("failed to start server");
     }
-
-    info!("service stopped");
 }
