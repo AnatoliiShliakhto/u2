@@ -71,7 +71,7 @@ impl Permissions {
             .into_iter()
             .map(|byte| {
                 Capabilities::from_bits(byte)
-                    .ok_or_else(|| format!("Invalid capability bits: {:#04x}", byte))
+                    .ok_or_else(|| format!("Invalid capability bits: {byte:#04x}"))
             })
             .collect();
 

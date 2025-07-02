@@ -12,15 +12,15 @@ license.workspace = true
 [dependencies]
 api-util = { path = "../../lib/api-util" }
 
-tokio = { version = "1.45.1", features = ["full"] }
+tokio = { version = "1.46.0", features = ["full"] }
 axum = { version = "0.8.4", features = ["multipart", "macros", "tokio"] }
 axum-extra = { version = "0.10.1", features = ["typed-header", "cookie"] }
 axum-reverse-proxy = { version = "1.0.2", default-features = false }
-surrealdb = { version = "2.3.5" }
+surrealdb = { version = "2.3.6" }
 serde = { version = "1.0.219", features = ["derive"] }
-serde_json = { version = "1.0.140" }
+#serde_json = { version = "1.0.140" }
 jsonwebtoken = { version = "9.3.1" }
 chrono = { version = "0.4.41" }
 bitflags = { version = "2.9.1" }
 base64 = { version = "0.22.1" }
-dashmap = { version = "7.0.0-rc2", features = ["serde", "rayon"] }
+#dashmap = { version = "7.0.0-rc2", features = ["serde", "rayon"] }

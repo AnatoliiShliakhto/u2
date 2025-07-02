@@ -9,7 +9,8 @@ pub trait AMQPPoolExt {
     fn send_message(
         &self,
         routing_key: &str,
-        message_id: &str,
+        options: AMQPMessageOptions,
+        payload: &[u8],
     ) -> impl Future<Output = Result<(), Error>>;
     fn send_json<S: Serialize>(
         &self,
@@ -17,7 +18,11 @@ pub trait AMQPPoolExt {
         options: AMQPMessageOptions,
         payload: &S,
     ) -> impl Future<Output = Result<(), Error>>;
-    fn broadcast_message(&self, message_id: &str) -> impl Future<Output = Result<(), Error>>;
+    fn broadcast_message(
+        &self,
+        options: AMQPMessageOptions,
+        payload: &[u8],
+    ) -> impl Future<Output = Result<(), Error>>;
     fn broadcast_json<S: Serialize>(
         &self,
         options: AMQPMessageOptions,
@@ -26,14 +31,14 @@ pub trait AMQPPoolExt {
 }
 
 impl AMQPPoolExt for AMQPPool {
-    async fn send_message(&self, routing_key: &str, message_id: &str) -> Result<(), Error> {
-        self.send(
-            ExchangeKind::Topic,
-            routing_key,
-            AMQPMessageOptions::default().with_message_id(message_id),
-            &[],
-        )
-        .await
+    async fn send_message(
+        &self,
+        routing_key: &str,
+        options: AMQPMessageOptions,
+        payload: &[u8],
+    ) -> Result<(), Error> {
+        self.send(ExchangeKind::Topic, routing_key, options, payload)
+            .await
     }
 
     async fn send_json<S: Serialize>(
@@ -51,14 +56,12 @@ impl AMQPPoolExt for AMQPPool {
         .await
     }
 
-    async fn broadcast_message(&self, message_id: &str) -> Result<(), Error> {
-        self.send(
-            ExchangeKind::Fanout,
-            "",
-            AMQPMessageOptions::default().with_message_id(message_id),
-            &[],
-        )
-        .await
+    async fn broadcast_message(
+        &self,
+        options: AMQPMessageOptions,
+        payload: &[u8],
+    ) -> Result<(), Error> {
+        self.send(ExchangeKind::Fanout, "", options, payload).await
     }
 
     async fn broadcast_json<S: Serialize>(

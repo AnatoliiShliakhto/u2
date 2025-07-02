@@ -5,9 +5,9 @@ use ::std::borrow::Cow;
 use ::tracing::error;
 
 pub trait DeliveryExt {
-    fn app_id(&self) -> String;
-    fn message_id(&self) -> String;
-    fn reply_to(&self) -> String;
+    fn app_id(&self) -> &str;
+    fn message_id(&self) -> &str;
+    fn reply_to(&self) -> &str;
     fn confirm(self);
     fn extract_string(&self) -> String;
     fn extract_str(&self) -> Cow<str>;
@@ -15,28 +15,22 @@ pub trait DeliveryExt {
 }
 
 impl DeliveryExt for Delivery {
-    fn app_id(&self) -> String {
-        self.properties
-            .app_id()
-            .clone()
-            .unwrap_or_default()
-            .to_string()
+    fn app_id(&self) -> &str {
+        self.properties.app_id().as_ref().map_or("", |s| s.as_str())
     }
 
-    fn message_id(&self) -> String {
+    fn message_id(&self) -> &str {
         self.properties
             .message_id()
-            .clone()
-            .unwrap_or_default()
-            .to_string()
+            .as_ref()
+            .map_or("", |s| s.as_str())
     }
 
-    fn reply_to(&self) -> String {
+    fn reply_to(&self) -> &str {
         self.properties
             .reply_to()
-            .clone()
-            .unwrap_or_default()
-            .to_string()
+            .as_ref()
+            .map_or("", |s| s.as_str())
     }
 
     fn confirm(self) {
@@ -63,7 +57,7 @@ async fn handle_delivery_ack(delivery: Delivery) {
         error!(
             error = %err,
             delivery_tag = delivery.delivery_tag,
-            "Failed to acknowledge AMQP delivery"
+            "failed to acknowledge AMQP delivery"
         );
     }
 }

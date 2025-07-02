@@ -5,7 +5,7 @@ use ::axum::{
     response::{IntoResponse, Response},
 };
 use ::serde::Serialize;
-use ::serde_json::{Value, json};
+use ::serde_json::Value;
 use ::tracing::error;
 
 #[allow(clippy::enum_variant_names)]
@@ -30,8 +30,8 @@ pub enum Error {
 }
 
 #[derive(Serialize)]
-pub struct ErrorBody {
-    pub message: String,
+pub struct ErrorBody<'a> {
+    pub message: &'a str,
     #[serde(skip_serializing_if = "Value::is_null")]
     pub details: Value,
 }
@@ -39,22 +39,19 @@ pub struct ErrorBody {
 impl IntoResponse for Error {
     fn into_response(self) -> Response {
         error!("{self:?}");
-        
+
         let (code, message, details) = match self {
-            Self::AuthError(err) => err.parts(),
-            Self::JsonRejection(err) => (
-                StatusCode::BAD_REQUEST,
-                err.to_string(),
+            Self::AuthError(err) => (err.status_code(), &*err.to_string(), Value::Null),
+            Self::JsonRejection(err) => (StatusCode::BAD_REQUEST, &*err.to_string(), Value::Null),
+            _ => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Something went wrong",
                 Value::Null,
             ),
-            _ => (StatusCode::INTERNAL_SERVER_ERROR, "Something went wrong".to_string(), Value::Null),
         };
-        
-        let body = json!({
-            "message": message,
-            "details": details,
-        });
-        
+
+        let body = ErrorBody { message, details };
+
         (code, Json(body)).into_response()
     }
 }

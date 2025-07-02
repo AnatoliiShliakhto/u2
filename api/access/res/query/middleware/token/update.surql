@@ -1,4 +1,4 @@
-UPDATE ONLY type::thing('refresh_tokens', <uuid> $token_id)
+UPDATE ONLY type::thing('tokens', <uuid> $token_id)
 MERGE {
     expiration_at: $expiration_at
 }

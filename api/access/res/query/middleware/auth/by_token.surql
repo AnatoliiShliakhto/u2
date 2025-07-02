@@ -1,6 +1,6 @@
 BEGIN TRANSACTION;
 
-LET $user_rec = type::thing('refresh_tokens', <uuid> $refresh_token)<-rel_user_refresh_tokens.in[0];
+LET $user_rec = type::thing('tokens', <uuid> $refresh_token)<-rel_user_tokens.in[0];
 
 RETURN SELECT
     id.id() as id,

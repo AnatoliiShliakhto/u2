@@ -21,7 +21,7 @@ async fn main() -> Result<(), Box<Error>> {
     set_panic_hook(None);
 
     let _logger_guard = log::file_logger(
-        &env::get_var_or_default("LOGS_DIR", "/logs"),
+        env::get_var_or_default("LOGS_DIR", "/logs"),
         env!("CARGO_PKG_NAME"),
     );
 

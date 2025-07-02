@@ -1,1 +1,1 @@
-DELETE type::thing('refresh_tokens', <uuid> $token_id);
+DELETE type::thing('tokens', <uuid> $token_id);

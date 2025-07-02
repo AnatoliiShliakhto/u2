@@ -1,8 +1,10 @@
 use super::ExchangeKind;
+use ::std::borrow::Cow;
 
-pub struct AMQPChannelOptions {
+#[derive(Default)]
+pub struct AMQPChannelOptions<'a> {
     pub(crate) exchange: ExchangeKind,
-    pub(crate) routing_key: String,
+    pub(crate) routing_key: Cow<'a, str>,
     pub(crate) passive: bool,
     pub(crate) durable: bool,
     pub(crate) exclusive: bool,
@@ -11,29 +13,14 @@ pub struct AMQPChannelOptions {
     pub(crate) nowait: bool,
 }
 
-impl Default for AMQPChannelOptions {
-    fn default() -> Self {
-        Self {
-            exchange: ExchangeKind::Custom(String::new()),
-            routing_key: String::new(),
-            passive: false,
-            durable: false,
-            exclusive: false,
-            auto_delete: false,
-            internal: false,
-            nowait: false,
-        }
-    }
-}
-
-impl AMQPChannelOptions {
+impl<'a> AMQPChannelOptions<'a> {
     pub fn with_exchange(mut self, value: ExchangeKind) -> Self {
         self.exchange = value;
         self
     }
 
-    pub fn with_routing_key(mut self, value: impl ToString) -> Self {
-        self.routing_key = value.to_string();
+    pub fn with_routing_key(mut self, value: impl Into<Cow<'a, str>>) -> Self {
+        self.routing_key = value.into();
         self
     }
 

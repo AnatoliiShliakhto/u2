@@ -1,12 +1,11 @@
 use crate::env;
-use ::std::sync::Arc;
 use ::surrealdb::{
     engine::remote::ws::{Client, Ws},
     opt::auth::Database,
     Surreal, Result,
 };
 
-pub async fn initialize_database() -> Result<Arc<Surreal<Client>>> {
+pub async fn initialize_database() -> Result<Surreal<Client>> {
     let database = <Surreal<Client>>::init();
 
     database
@@ -15,14 +14,14 @@ pub async fn initialize_database() -> Result<Arc<Surreal<Client>>> {
 
     database
         .signin(Database {
-            namespace: &env::get_var_or_default("DB_NAMESPACE", "u2"),
-            database: &env::get_var_or_default("DB_DATABASE", "core"),
-            username: &env::get_var_or_default("DB_USER", "root"),
-            password: &env::get_var_or_default("DB_PASS", "root"),
+            namespace: env::get_var_or_default("DB_NAMESPACE", "u2"),
+            database: env::get_var_or_default("DB_DATABASE", "core"),
+            username: env::get_var_or_default("DB_USER", "root"),
+            password: env::get_var_or_default("DB_PASS", "root"),
         })
         .await?;
 
-    Ok(Arc::new(database))
+    Ok(database)
 }
 
 #[macro_export]

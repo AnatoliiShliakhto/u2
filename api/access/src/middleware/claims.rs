@@ -1,5 +1,9 @@
 #![allow(dead_code)]
-use crate::{app::get_state, middleware::Auth, model::Capabilities};
+use crate::{
+    app::{AppState, get_state},
+    middleware::Auth,
+    model::Capabilities,
+};
 use ::api_util::{AuthError, Error, env};
 use ::axum::{RequestPartsExt, extract::FromRequestParts, http::request::Parts};
 use ::axum_extra::{
@@ -9,8 +13,10 @@ use ::axum_extra::{
 use ::chrono::{Duration, Utc};
 use ::jsonwebtoken::{DecodingKey, EncodingKey, Header, Validation, decode, encode};
 use ::serde::{Deserialize, Serialize};
-use ::std::{borrow::Cow, sync::LazyLock};
+use ::std::sync::LazyLock;
+use std::borrow::Cow;
 
+const MIN_AUTH_ID_LENGTH: usize = 20; // UUID v4
 static JWT_ACCESS_EXPIRATION: LazyLock<usize> = LazyLock::new(|| {
     env::get_var_or_default("JWT_ACCESS_EXPIRATION", "600")
         .parse()
@@ -18,13 +24,13 @@ static JWT_ACCESS_EXPIRATION: LazyLock<usize> = LazyLock::new(|| {
 });
 
 #[derive(Serialize, Deserialize)]
-pub struct Claims {
+pub struct Claims<'a> {
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub iss: Option<String>,
+    pub iss: Option<Cow<'a, str>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub sub: Option<String>,
+    pub sub: Option<Cow<'a, str>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub jti: Option<String>,
+    pub jti: Option<Cow<'a, str>>,
     pub iat: usize,
     pub exp: usize,
     #[serde(
@@ -34,12 +40,12 @@ pub struct Claims {
         deserialize_with = "Auth::deserialize",
         default
     )]
-    pub auth: Option<Auth>,
+    pub auth: Option<Auth<'a>>,
 }
 
-impl Claims {
+impl<'a> Claims<'a> {
     pub fn new() -> Self {
-        let timestamp_now = Utc::now().timestamp() as usize;
+        let timestamp_now = Self::current_timestamp();
         Self {
             iss: None,
             sub: None,
@@ -50,24 +56,18 @@ impl Claims {
         }
     }
 
-    pub fn with_issuer(mut self, iss: &str) -> Self {
-        if !iss.is_empty() {
-            self.iss = Some(iss.to_string());
-        }
+    pub fn with_issuer(mut self, iss: impl Into<Cow<'a, str>>) -> Self {
+        self.iss = Some(iss.into());
         self
     }
 
-    pub fn with_subject(mut self, sub: &str) -> Self {
-        if !sub.is_empty() {
-            self.sub = Some(sub.to_string());
-        }
+    pub fn with_subject(mut self, sub: impl Into<Cow<'a, str>>) -> Self {
+        self.sub = Some(sub.into());
         self
     }
 
-    pub fn with_jti(mut self, jti: &str) -> Self {
-        if !jti.is_empty() {
-            self.jti = Some(jti.to_string());
-        }
+    pub fn with_jti(mut self, jti: impl Into<Cow<'a, str>>) -> Self {
+        self.jti = Some(jti.into());
         self
     }
 
@@ -76,49 +76,45 @@ impl Claims {
         self
     }
 
-    pub fn with_expiration_in_seconds(mut self, seconds: i64) -> Self {
-        self.exp = (Utc::now() + Duration::seconds(seconds)).timestamp() as usize;
+    pub fn with_expiration_duration(mut self, duration: Duration) -> Self {
+        self.exp = Self::calculate_expiration_timestamp(duration);
         self
     }
 
-    pub fn with_expiration_in_minutes(mut self, minutes: i64) -> Self {
-        self.exp = (Utc::now() + Duration::minutes(minutes)).timestamp() as usize;
-        self
+    pub fn with_expiration_in_seconds(self, seconds: i64) -> Self {
+        self.with_expiration_duration(Duration::seconds(seconds))
     }
 
-    pub fn with_expiration_in_hours(mut self, hours: i64) -> Self {
-        self.exp = (Utc::now() + Duration::hours(hours)).timestamp() as usize;
-        self
+    pub fn with_expiration_in_minutes(self, minutes: i64) -> Self {
+        self.with_expiration_duration(Duration::minutes(minutes))
     }
 
-    pub fn with_expiration_in_days(mut self, days: i64) -> Self {
-        self.exp = (Utc::now() + Duration::days(days)).timestamp() as usize;
-        self
+    pub fn with_expiration_in_hours(self, hours: i64) -> Self {
+        self.with_expiration_duration(Duration::hours(hours))
     }
 
-    pub fn with_auth(mut self, auth: Auth) -> Self {
+    pub fn with_expiration_in_days(self, days: i64) -> Self {
+        self.with_expiration_duration(Duration::days(days))
+    }
+
+    pub fn with_auth(mut self, auth: Auth<'a>) -> Self {
         self.auth = Some(auth);
         self
     }
 
     pub fn is_expired(&self) -> bool {
-        self.exp < Utc::now().timestamp() as usize
+        self.exp < Self::current_timestamp()
     }
 
-    pub fn build_token(&self, encoding_key: &EncodingKey) -> Result<Cow<'static, str>, AuthError> {
-        encode(&Header::default(), self, encoding_key)
-            .map_err(|_| AuthError::TokenCreation)
-            .map(|v| Ok(Cow::Owned(v)))?
+    pub fn build_token(&self, encoding_key: &EncodingKey) -> Result<String, AuthError> {
+        encode(&Header::default(), self, encoding_key).map_err(|_| AuthError::TokenCreation)
     }
 
     pub fn from_refresh_token(token: &str, decoding_key: &DecodingKey) -> Result<Self, AuthError> {
         let token_data = decode::<Claims>(token, decoding_key, &Validation::default())
             .map_err(|_| AuthError::InvalidToken)?;
 
-        if token_data.claims.jti.is_none() {
-            Err(AuthError::InvalidToken)?
-        }
-
+        Self::validate_refresh_token(&token_data.claims)?;
         Ok(token_data.claims)
     }
 
@@ -131,9 +127,7 @@ impl Claims {
         index: u16,
         capabilities: Capabilities,
     ) -> Result<(), AuthError> {
-        let Some(auth) = &self.auth else {
-            Err(AuthError::AccessForbidden)?
-        };
+        let auth = self.auth.as_ref().ok_or(AuthError::AccessForbidden)?;
 
         if auth
             .permissions
@@ -142,15 +136,53 @@ impl Claims {
         {
             Ok(())
         } else {
-            Err(AuthError::AccessForbidden)?
+            Err(AuthError::AccessForbidden)
         }
+    }
+
+    fn current_timestamp() -> usize {
+        Utc::now().timestamp() as usize
+    }
+
+    fn calculate_expiration_timestamp(duration: Duration) -> usize {
+        (Utc::now() + duration).timestamp() as usize
+    }
+
+    fn validate_refresh_token(claims: &Claims) -> Result<(), AuthError> {
+        if claims.jti.is_none() {
+            Err(AuthError::InvalidToken)
+        } else {
+            Ok(())
+        }
+    }
+
+    fn validate_access_token_auth(&self) -> Result<(), AuthError> {
+        match &self.auth {
+            None => Err(AuthError::InvalidToken),
+            Some(auth) if auth.id.len() < MIN_AUTH_ID_LENGTH => Err(AuthError::InvalidToken),
+            Some(_) => Ok(()),
+        }
+    }
+
+    fn validate_permissions_consistency(&self, state: &AppState) -> Result<(), AuthError> {
+        if let Some(auth) = &self.auth {
+            let permissions_map_len = state
+                .permissions_map
+                .try_read()
+                .map(|guard| guard.len())
+                .unwrap_or(0);
+
+            if permissions_map_len != auth.permissions.len() {
+                return Err(AuthError::InvalidToken);
+            }
+        }
+        Ok(())
     }
 }
 
-impl Default for Claims {
+impl Default for Claims<'_> {
     fn default() -> Self {
-        let timestamp_now = Utc::now().timestamp() as usize;
-
+        let timestamp_now = Self::current_timestamp();
         Self {
             iss: None,
             sub: None,
@@ -162,7 +194,7 @@ impl Default for Claims {
     }
 }
 
-impl<S> FromRequestParts<S> for Claims
+impl<S> FromRequestParts<S> for Claims<'_>
 where
     S: Send + Sync + Clone,
 {
@@ -171,11 +203,10 @@ where
     async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
         let state = get_state();
 
-        let Ok(TypedHeader(Authorization(bearer))) =
-            parts.extract::<TypedHeader<Authorization<Bearer>>>().await
-        else {
-            Err(AuthError::MissingToken)?
-        };
+        let TypedHeader(Authorization(bearer)) = parts
+            .extract::<TypedHeader<Authorization<Bearer>>>()
+            .await
+            .map_err(|_| AuthError::MissingToken)?;
 
         let token_data = decode::<Claims>(
             bearer.token(),
@@ -184,16 +215,10 @@ where
         )
         .map_err(|_| AuthError::InvalidToken)?;
 
-        if token_data.claims.auth.is_none() {
-            Err(AuthError::InvalidToken)?
-        }
+        let claims = token_data.claims;
+        claims.validate_access_token_auth()?;
+        claims.validate_permissions_consistency(state)?;
 
-        if let Some(auth) = &token_data.claims.auth {
-            if state.permissions_map.read().await.len() != auth.permissions.len() {
-                Err(AuthError::InvalidToken)?
-            }
-        }
-
-        Ok(token_data.claims)
+        Ok(claims)
     }
 }

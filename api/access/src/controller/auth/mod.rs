@@ -1,6 +1,7 @@
 mod authorize;
 mod revoke;
 mod token;
+mod util;
 
 pub use self::{
     authorize::*,

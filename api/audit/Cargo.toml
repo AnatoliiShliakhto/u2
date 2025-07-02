@@ -13,5 +13,5 @@ license.workspace = true
 api-util = { path = "../../lib/api-util" }
 
 axum = { version = "0.8.4", features = ["tokio"] }
-surrealdb = { version = "2.3.5" }
-tokio = { version = "1.45.1", features = ["full"] }
+surrealdb = { version = "2.3.6" }
+tokio = { version = "1.46.0", features = ["full"] }

@@ -1,70 +1,81 @@
 use ::api_util::{AuthError, Error};
-use ::serde::Deserialize;
-use ::std::collections::HashMap;
+use ::serde::{Deserialize, Serialize};
+use ::std::{borrow::Cow, collections::HashMap};
 use ::surrealdb::{Surreal, engine::remote::ws::Client};
 
 #[derive(Deserialize)]
-struct AccountEntity {
-    id: String,
-    permissions: Vec<(u16, u8)>,
+struct AuthEntity<'a> {
+    id: Cow<'a, str>,
+    permissions: Cow<'a, [(u16, u8)]>,
 }
 
-pub trait AccountAuthRepository {
-    async fn find_auth_by_credentials<T: ToString>(
-        &self,
-        login: T,
-        password: T,
-    ) -> Result<(String, HashMap<u16, u8>), Error>;
-    async fn find_auth_by_token(
-        &self,
-        refresh_token: impl ToString,
-    ) -> Result<(String, HashMap<u16, u8>), Error>;
+pub struct AuthEntityDto<'a> {
+    pub id: Cow<'a, str>,
+    pub permissions: HashMap<u16, u8>,
 }
 
-impl AccountAuthRepository for Surreal<Client> {
-    async fn find_auth_by_credentials<T: ToString>(
+pub trait AuthRepository {
+    async fn find_auth_by_credentials(
         &self,
-        login: T,
-        password: T,
-    ) -> Result<(String, HashMap<u16, u8>), Error> {
-        let account = self
+        login: impl Into<String>,
+        password: impl Into<String>,
+    ) -> Result<AuthEntityDto, Error>;
+    async fn find_auth_by_token(&self, refresh_token: impl Into<String>)
+    -> Result<AuthEntityDto, Error>;
+}
+
+impl AuthRepository for Surreal<Client> {
+    async fn find_auth_by_credentials(
+        &self,
+        login: impl Into<String>,
+        password: impl Into<String>,
+    ) -> Result<AuthEntityDto, Error> {
+        #[derive(Serialize)]
+        struct SqlParams {
+            login: String,
+            password: String,
+        }
+
+        let user = self
             .query(include_str!(
                 "../../res/query/middleware/auth/by_credentials.surql"
             ))
-            .bind(("login", login.to_string()))
-            .bind(("password", password.to_string()))
+            .bind(SqlParams {
+                login: login.into(),
+                password: password.into(),
+            })
             .await?
-            .take::<Option<AccountEntity>>(0)?
+            .take::<Option<AuthEntity>>(0)?
             .ok_or(AuthError::WrongCredentials)?;
 
-        let permissions = account
-            .permissions
-            .iter()
-            .map(|&(id, perm)| (id, perm))
-            .collect::<HashMap<u16, u8>>();
-
-        Ok((account.id, permissions))
+        Ok(entity_to_dto(user))
     }
 
     async fn find_auth_by_token(
         &self,
-        refresh_token: impl ToString,
-    ) -> Result<(String, HashMap<u16, u8>), Error> {
-        let account = self
-            .query(include_str!(
-                "../../res/query/middleware/auth/by_token.surql"
-            ))
-            .bind(("refresh_token", refresh_token.to_string()))
-            .await?
-            .take::<Option<AccountEntity>>(0)?
-            .ok_or(AuthError::WrongCredentials)?;
+        refresh_token: impl Into<String>,
+    ) -> Result<AuthEntityDto, Error> {
+        let user = self.query(include_str!(
+            "../../res/query/middleware/auth/by_token.surql"
+        ))
+        .bind(("refresh_token", refresh_token.into()))
+        .await?
+        .take::<Option<AuthEntity>>(0)?
+        .ok_or(AuthError::WrongCredentials)?;
+        
+        Ok(entity_to_dto(user))
+    }
+}
 
-        let permissions = account
-            .permissions
-            .iter()
-            .map(|&(id, caps)| (id, caps))
-            .collect::<HashMap<u16, u8>>();
+fn entity_to_dto(auth: AuthEntity) -> AuthEntityDto {
+    let permissions = auth
+        .permissions
+        .iter()
+        .map(|&(id, perm)| (id, perm))
+        .collect::<HashMap<u16, u8>>();
 
-        Ok((account.id, permissions))
+    AuthEntityDto {
+        id: auth.id,
+        permissions,
     }
 }

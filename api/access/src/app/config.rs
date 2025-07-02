@@ -11,13 +11,13 @@ pub struct Security {
     pub jwt: Jwt,
     pub jwt_keys: JwtKeys,
     pub delete_expired_tokens_interval: u64,
-    pub set_cookie: String,
+    pub set_cookie: &'static str,
 }
 
 pub struct Jwt {
-    pub secret: String,
-    pub issuer: String,
-    pub subject: String,
+    pub secret: &'static str,
+    pub issuer: &'static str,
+    pub subject: &'static str,
     pub access_expires_in: i64,
     pub refresh_expires_in: i64,
 }

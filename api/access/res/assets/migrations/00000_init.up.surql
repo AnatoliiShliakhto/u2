@@ -26,13 +26,13 @@ DEFINE FIELD metadata ON TABLE users TYPE {
 DEFINE FIELD metadata.updated_at ON TABLE users TYPE int VALUE time::unix();
 DEFINE INDEX idx_users_login ON TABLE users COLUMNS login UNIQUE;
 
-DEFINE TABLE refresh_tokens SCHEMAFULL TYPE NORMAL;
-DEFINE FIELD issued_at ON TABLE refresh_tokens TYPE int VALUE time::unix();
-DEFINE FIELD expiration_at ON TABLE refresh_tokens TYPE int DEFAULT time::unix() + 1296000;
-DEFINE FIELD device ON TABLE refresh_tokens TYPE string DEFAULT 'web';
+DEFINE TABLE tokens SCHEMAFULL TYPE NORMAL;
+DEFINE FIELD issued_at ON TABLE tokens TYPE int VALUE time::unix();
+DEFINE FIELD expiration_at ON TABLE tokens TYPE int DEFAULT time::unix() + 1296000;
+DEFINE FIELD device ON TABLE tokens TYPE string DEFAULT 'web';
 
-DEFINE TABLE rel_user_refresh_tokens SCHEMAFULL TYPE RELATION IN users OUT refresh_tokens;
-DEFINE INDEX idx_rel_user_refresh_tokens ON TABLE rel_user_refresh_tokens COLUMNS in, out UNIQUE;
+DEFINE TABLE rel_user_tokens SCHEMAFULL TYPE RELATION IN users OUT tokens;
+DEFINE INDEX idx_rel_user_tokens ON TABLE rel_user_tokens COLUMNS in, out UNIQUE;
 
 DEFINE TABLE permissions SCHEMAFULL;
 DEFINE FIELD name ON TABLE permissions TYPE string;

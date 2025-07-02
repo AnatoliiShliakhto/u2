@@ -21,7 +21,7 @@ pub fn init_app() -> Router {
     Router::new()
         .merge(ReverseProxy::new(
             "/",
-            &env::get_var_or_default("ACCESS_URL", "http://access:80"),
+            env::get_var_or_default("ACCESS_URL", "http://access:80"),
         ))
         .layer(ServiceBuilder::new().layer(RetryLayer::new(3)))
         .route("/healthcheck", get(handler::healthcheck))

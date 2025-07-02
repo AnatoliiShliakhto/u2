@@ -13,7 +13,7 @@ fn get_server_address() -> SocketAddr {
 
     let ip: IpAddr = host
         .parse()
-        .unwrap_or(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)));
+        .unwrap_or_else(|_| IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)));
     let port_num: u16 = port.parse().unwrap_or(80);
 
     SocketAddr::new(ip, port_num)

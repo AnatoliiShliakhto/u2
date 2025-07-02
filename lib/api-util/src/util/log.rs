@@ -1,5 +1,5 @@
 use crate::amqp::{AMQPMessageOptions, AMQPPool, ExchangeKind};
-use ::std::{io, sync::Arc, sync::Mutex};
+use ::std::{io, sync::Mutex};
 use ::tracing_appender::{
     non_blocking::WorkerGuard,
     rolling::{RollingFileAppender, Rotation},
@@ -13,23 +13,21 @@ pub use ::tracing_appender::rolling as rolling_appender;
 
 pub struct LoggerWriter {
     app: &'static str,
-    amqp: Arc<AMQPPool>,
+    amqp: &'static AMQPPool,
 }
 
 impl LoggerWriter {
-    pub fn new(app: &'static str, pool: &Arc<AMQPPool>) -> Self {
-        Self {
-            app,
-            amqp: pool.clone(),
-        }
+    pub fn new(app: &'static str, pool: &'static AMQPPool) -> Self {
+        Self { app, amqp: pool }
     }
 }
 
 impl io::Write for LoggerWriter {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         let app = self.app;
-        let pool = self.amqp.clone();
-        let buf_owned = buf.to_vec();
+        let pool = self.amqp;
+        let buf_owned = buf.to_owned();
+
         tokio::spawn(async move {
             if let Err(err) = pool
                 .send(
@@ -40,9 +38,10 @@ impl io::Write for LoggerWriter {
                 )
                 .await
             {
-                eprintln!("'log.write' sending AMQP message: {}", err);
+                eprintln!("'log.write' sending AMQP message: {err}");
             };
         });
+
         Ok(buf.len())
     }
 
@@ -76,7 +75,7 @@ pub fn stdout_logger() {
         .init();
 }
 
-pub async fn amqp_logger(app: &'static str, pool: &Arc<AMQPPool>) {
+pub async fn amqp_logger(app: &'static str, pool: &'static AMQPPool) {
     let env_filter = create_env_filter();
     let stdout_layer = create_stdout_layer();
     let amqp_layer = layer()

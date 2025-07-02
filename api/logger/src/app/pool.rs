@@ -10,12 +10,12 @@ use ::std::{
 use ::tokio::sync::Mutex;
 
 pub struct Pool {
-    path: String,
+    path: &'static str,
     pool: Mutex<HashMap<String, Arc<Mutex<RollingFileAppender>>>>,
 }
 
 impl Pool {
-    pub fn new(path: String) -> Self {
+    pub fn new(path: &'static str) -> Self {
         Self {
             path,
             pool: Mutex::new(HashMap::new()),
@@ -34,7 +34,7 @@ impl Pool {
                     .filename_suffix("log")
                     .rotation(Rotation::DAILY)
                     .max_log_files(30)
-                    .build(self.path.clone())
+                    .build(self.path)
                     .expect("failed to initialize rolling file appender");
                 let file = Arc::new(Mutex::new(file_appender));
                 pool.insert(filename.to_string(), file.clone());

@@ -1,19 +1,18 @@
 use super::config::AppConfig;
 use ::api_util::{Error, amqp::AMQPPool, amqp_init, db_init, migrate::MigrateExt};
-use ::std::sync::Arc;
 use ::surrealdb::{Surreal, engine::remote::ws::Client};
 use ::tokio::sync::OnceCell;
 
 static APP: OnceCell<AppState> = OnceCell::const_new();
 
 pub struct AppState {
-    pub cfg:  Arc<AppConfig>,
-    pub amqp: Arc<AMQPPool>,
-    pub db: Arc<Surreal<Client>>,
+    pub cfg:  AppConfig,
+    pub amqp: AMQPPool,
+    pub db: Surreal<Client>,
 }
 
 pub async fn init_state() -> Result<&'static AppState, Error> {
-    let cfg:  Arc<AppConfig> = Arc::new(AppConfig::new());
+    let cfg = AppConfig::new();
     let amqp = amqp_init!();
     let db = db_init!();
 

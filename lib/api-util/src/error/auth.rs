@@ -19,7 +19,7 @@ pub enum AuthError {
 }
 
 impl AuthError {
-    pub fn parts(&self) -> (StatusCode, String, Value) {
+    pub fn status_code(&self) -> StatusCode {
         let status_code = match self {
             Self::Unauthorized
             | Self::WrongCredentials
@@ -29,6 +29,6 @@ impl AuthError {
             Self::AccessForbidden => StatusCode::FORBIDDEN,
         };
 
-        (status_code, self.to_string(), Value::Null)
+        status_code
     }
 }

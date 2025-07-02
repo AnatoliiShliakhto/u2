@@ -1,10 +1,10 @@
 BEGIN TRANSACTION;
 
 REMOVE TABLE IF EXISTS users;
-REMOVE TABLE IF EXISTS refresh_tokens;
+REMOVE TABLE IF EXISTS tokens;
 REMOVE TABLE IF EXISTS permissions;
 REMOVE TABLE IF EXISTS groups;
-REMOVE TABLE IF EXISTS rel_user_refresh_tokens;
+REMOVE TABLE IF EXISTS rel_user_tokens;
 REMOVE TABLE IF EXISTS rel_group_permissions;
 REMOVE TABLE IF EXISTS rel_user_groups;
 
